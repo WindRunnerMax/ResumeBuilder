@@ -1,0 +1,13 @@
+{
+    "cSpell.words": [
+        "arcoblue",
+        "COMPAT",
+        "pako",
+        "pnpm",
+        "rspack",
+        "TSON",
+        "undoable",
+        "webrtc"
+    ],
+    "js/ts.tsdk.path": "node_modules/typescript/lib"
+}

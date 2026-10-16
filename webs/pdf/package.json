@@ -1,0 +1,24 @@
+{
+  "name": "@cv/pdf",
+  "version": "0.0.0",
+  "description": "PDF export module, provides PDF export via browser extension CDP",
+  "author": "",
+  "license": "MIT",
+  "sideEffects": false,
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development rspack build --config ./rspack.config.ts --watch",
+    "build": "rm -rf build && rspack build --config ./rspack.config.ts",
+    "build:zip": "mkdir -p .zip && rm -f .zip/chromium.zip && cd build && zip -r ../.zip/chromium.zip .",
+    "lint:ts": "../../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit --skipLibCheck"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@rspack/cli": "0.2.5",
+    "@rspack/core": "0.2.5",
+    "@types/chrome": "0.0.287",
+    "@types/ws": "8.5.12",
+    "cross-env": "7.0.3",
+    "ts-node": "10.9.2",
+    "ws": "8.18.0"
+  }
+}
