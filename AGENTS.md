@@ -6,7 +6,7 @@
 - packages/json: 数据模块，定义了 json 数据模型，以及 ot-json 管理数据
 - packages/utils: 工具模块，提供一些常用的工具函数
 - webs/pdf: PDF 导出模块，以浏览器扩展 CDP 的形式提供 PDF 导出功能
-- webs/react: web 页面，具体实现简历编辑器的 UI 和交互
+- webs/website: web 页面，具体实现简历编辑器的 UI 和交互
 
 ## 依赖管理
 

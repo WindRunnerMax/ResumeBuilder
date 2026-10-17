@@ -1,9 +1,9 @@
 packages:
   - "packages/utils"
-  - "packages/delta"
+  - "packages/json"
   - "packages/core"
   - "packages/plugin"
   - "packages/react"
+
   - "webs/pdf"
-  - "webs/react"
-  
+  - "webs/website"

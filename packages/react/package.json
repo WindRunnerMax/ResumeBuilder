@@ -1,0 +1,42 @@
+{
+  "name": "@cv/react",
+  "version": "0.0.0",
+  "description": "React adapter for @cv/core, no business logic",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "sideEffects": [
+    "**/*.css",
+    "**/*.scss"
+  ],
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "jest --config jest.config.js",
+    "lint:ts": "../../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit --skipLibCheck"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@cv/core": "workspace: *",
+    "@cv/json": "workspace: *",
+    "@cv/utils": "workspace: *"
+  },
+  "peerDependencies": {
+    "react": "17.0.2",
+    "react-dom": "17.0.2"
+  },
+  "devDependencies": {
+    "@swc/core": "1.15.43",
+    "@swc/jest": "0.2.39",
+    "@testing-library/react": "12.1.2",
+    "@types/jest": "29.4.0",
+    "@types/react": "17.0.2",
+    "@types/react-dom": "17.0.2",
+    "jest": "29.4.1",
+    "jest-environment-jsdom": "29.7.0",
+    "react": "17.0.2",
+    "react-dom": "17.0.2"
+  }
+}

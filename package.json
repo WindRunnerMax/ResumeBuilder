@@ -2,6 +2,10 @@
   "name": "@cv/workspace",
   "version": "1.0.0",
   "scripts": {
+    "dev": "pnpm --filter @cv/website run dev",
+    "build": "pnpm --filter @cv/website run build",
+    "build:pdf": "pnpm --filter @cv/pdf run build",
+    "test": "pnpm --filter './packages/*' run test",
     "lint:ts": "pnpm --filter '*' run lint:ts"
   },
   "keywords": [],

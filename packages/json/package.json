@@ -8,11 +8,15 @@
   "files": [
     "dist"
   ],
-  "scripts": {},
+  "scripts": {
+    "test": "jest --config jest.config.js",
+    "lint:ts": "../../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit --skipLibCheck"
+  },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@block-kit/delta": "1.0.24",
     "@block-kit/ot-json": "1.0.24"
   },
   "devDependencies": {

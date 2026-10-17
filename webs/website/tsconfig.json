@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@cv/utils": ["../../packages/utils/src"],
+      "@cv/json": ["../../packages/json/src"],
+      "@cv/core": ["../../packages/core/src"],
+      "@cv/plugin": ["../../packages/plugin/src"],
+      "@cv/react": ["../../packages/react/src"]
+    }
+  },
+  "include": ["./src/**/*.ts", "./src/**/*.tsx", "./rspack.config.ts"],
+  "exclude": ["**/node_modules/**/*", "build"]
+}

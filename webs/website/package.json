@@ -1,0 +1,43 @@
+{
+  "name": "@cv/website",
+  "version": "0.0.0",
+  "description": "Resume builder web app",
+  "sideEffects": [
+    "**/*.css",
+    "**/*.scss"
+  ],
+  "scripts": {
+    "dev": "cross-env NODE_ENV=development rspack serve --config ./rspack.config.ts",
+    "build": "rm -rf build && rspack build --config ./rspack.config.ts",
+    "lint:ts": "../../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit --skipLibCheck"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@block-kit/core": "1.0.24",
+    "@block-kit/delta": "1.0.24",
+    "@block-kit/utils": "1.0.24",
+    "@cv/core": "workspace: *",
+    "@cv/json": "workspace: *",
+    "@cv/plugin": "workspace: *",
+    "@cv/react": "workspace: *",
+    "@cv/utils": "workspace: *",
+    "react": "17.0.2",
+    "react-dom": "17.0.2"
+  },
+  "devDependencies": {
+    "@rspack/cli": "0.2.5",
+    "@rspack/core": "0.2.5",
+    "@rspack/plugin-html": "0.2.5",
+    "@types/node": "20.12.5",
+    "@types/react": "17.0.2",
+    "@types/react-dom": "17.0.2",
+    "cross-env": "7.0.3",
+    "css-loader": "6.8.1",
+    "sass": "1.52.3",
+    "sass-loader": "13.3.2",
+    "style-loader": "3.3.3",
+    "typescript": "5.3.2"
+  }
+}
