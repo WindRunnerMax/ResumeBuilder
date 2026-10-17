@@ -48,21 +48,34 @@ body {
 
   height: $header-height;
   flex-shrink: 0;
-  padding: 0 12px;
+  padding: 0 10px;
   background: var(--color-bg-1);
   border-bottom: 1px solid var(--color-border-2);
+  // 顶栏文案（标题、纸张尺寸）不可被选中
+  user-select: none;
 }
 
 .cv-header-left {
   @include flex-align-center;
 
-  gap: 12px;
+  gap: 6px;
 }
 
 /** 顶栏左侧工具栏 */
 
 .cv-nav-tools {
   @include flex-align-center;
+
+  // 工具栏文案与图标不可被选中
+  user-select: none;
+}
+
+/* 工具组分隔线 */
+.cv-nav-divider {
+  width: 1px;
+  height: 14px;
+  margin-left: 10px;
+  background: var(--color-border-2);
 }
 
 .cv-nav-tool {
@@ -72,7 +85,7 @@ body {
   cursor: pointer;
   font-size: 18px;
   height: 23px;
-  margin-right: 10px;
+  margin-left: 10px;
   padding: 3px;
   width: 23px;
 
@@ -91,6 +104,7 @@ body {
 }
 
 .cv-header-meta {
+  margin-left: 12px;
   font-size: 12px;
   color: var(--color-text-3);
 }
@@ -148,6 +162,7 @@ body {
   flex-shrink: 0;
   background: var(--color-bg-1);
   border-right: 1px solid var(--color-border-2);
+  user-select: none;
 
   .arco-tabs-content {
     padding-top: 0;
@@ -370,13 +385,6 @@ body {
   }
 }
 
-.cv-right-panel__hint {
-  margin-top: 12px;
-  font-size: 11px;
-  line-height: 1.6;
-  color: var(--color-text-3);
-}
-
 /** 取色器 */
 .cv-color-input {
   width: 40px;
@@ -520,14 +528,13 @@ body {
 }
 
 .cv-right-panel__label {
-  width: 18px;
   flex-shrink: 0;
   font-size: 12px;
   color: var(--color-text-3);
+  white-space: nowrap;
 }
 
 .cv-right-panel__actions {
-  margin-top: 12px;
   display: flex;
   gap: 8px;
 }
@@ -555,20 +562,6 @@ body {
 
   &:hover {
     background: rgb(var(--primary-5));
-  }
-}
-
-.cv-btn--link {
-  padding: 0;
-  font-size: 14px;
-  color: rgb(var(--primary-6));
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  line-height: 1;
-
-  &:hover {
-    color: rgb(var(--primary-5));
   }
 }
 

@@ -1,6 +1,6 @@
 import type { ImageNode } from "@cv/json";
-import type { ElementViewProps } from "@cv/react";
-import { registerElementView } from "@cv/react";
+import type { ElementViewProps } from "../../index";
+import { registerElementView } from "../../index";
 import type { FC } from "react";
 import React from "react";
 
@@ -15,6 +15,7 @@ const RectView: FC<ElementViewProps> = () => <div style={{ width: "100%", height
 /** 图片视图 */
 const ImageView: FC<ElementViewProps> = props => {
   const node = props.node as ImageNode;
+  const border = node.border;
   return (
     <img
       src={node.src}
@@ -27,6 +28,7 @@ const ImageView: FC<ElementViewProps> = props => {
         objectFit: node.mode,
         borderRadius: node.radius || 0,
         boxSizing: "border-box",
+        border: border ? `${border.width}px solid ${border.color}` : "none",
       }}
     />
   );

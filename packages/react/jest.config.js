@@ -2,9 +2,11 @@ module.exports = {
   moduleFileExtensions: ["js", "ts", "tsx"],
   moduleDirectories: ["node_modules", "src", "test"],
   moduleNameMapper: {
+    "\\.(css|less|scss|sass)$": "<rootDir>/test/style-mock.js",
     "^@cv/utils$": "<rootDir>/../utils/src",
     "^@cv/json$": "<rootDir>/../json/src",
     "^@cv/core$": "<rootDir>/../core/src",
+    "^@cv/react$": "<rootDir>/src",
     "src/(.*)$": "<rootDir>/src/$1",
   },
   transform: {

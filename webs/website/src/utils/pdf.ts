@@ -128,84 +128,91 @@ export const waitForAssets = async (): Promise<void> => {
 };
 
 /**
- * 生成供 Agent 使用的 CDP 导出指令
- * - 不依赖 ws 等额外包，使用 CDP 的 HTTP 端点
- * - 让 Agent 直接在已打开页面的 Chrome 上执行
+ * 生成交给 Agent 使用的导出提示词
+ * - 纯 headless Chrome 命令行，不依赖 Node / Python / ws 等任何运行时或第三方包
+ * - 简历数据存在浏览器 localStorage 中，需要复用用户 profile 才能读到真实草稿
+ * - 预览页带 `?print=1` 时自动进入导出态，只渲染纸张，配合 `--no-pdf-header-footer` 输出单页
+ * @param filename 输出文件名
+ * @param paper 纸张毫米尺寸
  */
 export const createCdpPrompt = (filename: string, paper: PaperMm): string => {
-  const printOptions = {
-    printBackground: true,
-    preferCSSPageSize: true,
-    paperWidth: mmToInch(paper.width),
-    paperHeight: mmToInch(paper.height),
-    marginTop: 0,
-    marginBottom: 0,
-    marginLeft: 0,
-    marginRight: 0,
-  };
-  return `请用 Chrome DevTools Protocol 把当前预览页导出为单页 PDF。
+  const chrome = `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"`;
+  const width = paper.width.toFixed(2);
+  const height = paper.height.toFixed(2);
+  const printUrl = (() => {
+    const base = location.href.split("?")[0].split("#")[0];
+    return `${base}?print=1#/preview`;
+  })();
+  return `请把下面的页面导出成单页 PDF，文件名 ${filename}。
 
-1. 以调试模式启动 Chrome：
-   /Applications/Google Chrome.app/Contents/MacOS/Google Chrome \\
-     --remote-debugging-port=9222 --user-data-dir=/tmp/cv-chrome "${location.href}"
+页面：${printUrl}
+纸张：${width} × ${height} mm
 
-2. 等待页面渲染完成后执行下面的 Node 脚本（仅用内置模块）：
+背景：简历数据保存在浏览器的 localStorage 中，headless 实例若使用全新的临时 profile，
+读不到任何草稿，只会打印出默认示例内容。所以必须先复用用户浏览器的 profile 数据。
 
-\`\`\`js
-const http = require("http");
-const fs = require("fs");
+要求：
+- 只用命令行完成，不安装任何依赖（不需要 Node、Python、ws、puppeteer），不连接调试端口。
+- 所有不确定的地方都要先询问用户，不要自己猜。
+- 最后确认 ${filename} 已生成且大小大于 0。
 
-const get = url =>
-  new Promise((res, rej) =>
-    http.get(url, r => {
-      let d = "";
-      r.on("data", c => (d += c));
-      r.on("end", () => res(JSON.parse(d)));
-    }).on("error", rej)
-  );
+步骤一，探测用户浏览器与 profile（这一步必须真实执行命令，不能凭默认值假设）：
 
-const print = body =>
-  new Promise((res, rej) => {
-    const req = http.request(
-      { host: "127.0.0.1", port: 9222, path: "/json/print", method: "PUT" },
-      r => {
-        let d = "";
-        r.on("data", c => (d += c));
-        r.on("end", () => res(d));
-      }
-    );
-    req.on("error", rej);
-    req.setHeader("Content-Type", "application/json");
-    req.end(JSON.stringify(body));
-  });
+\`\`\`bash
+# 列出所有存在且有实际数据的 Local Storage 目录
+for d in "$HOME/Library/Application Support/Google/Chrome/"*/ \\
+         "$HOME/Library/Application Support/Microsoft Edge/"*/ \\
+         "$HOME/Library/Application Support/BraveSoftware/Brave-Browser/"*/; do
+  [ -d "$d/Local Storage/leveldb" ] || continue
+  size=$(du -sk "$d/Local Storage" | cut -f1)
+  [ "$size" -gt 0 ] && echo "$size KB  $d"
+done
+\`\`\`
 
-(async () => {
-  const list = await get("http://127.0.0.1:9222/json/list");
-  const page = list.find(t => t.type === "page" && t.url.includes(${JSON.stringify(
-    location.origin
-  )}));
-  if (!page) throw new Error("未找到预览页，请确认 URL 正确");
+- 体积为 0 的目录（例如 \`Guest Profile\`、\`System Profile\`）直接忽略，它们不算候选。
+- 过滤后只剩一个候选，就直接使用它。
+- 过滤后仍有多个候选（例如 \`Default\`、\`Profile 1\`、\`Profile 2\`），无法确定用户在哪个 profile 里编辑过简历时，
+  必须停下来询问用户，例如：「检测到多个浏览器 profile，请问你是在哪一个里打开的这个页面？」
+  不要用文件修改时间等启发式规则擅自选择。
+- 一个候选都没有，或者用户使用的不是 Chrome / Edge / Brave，
+  也要询问用户：用的是哪个浏览器、profile 目录在哪里。
 
-  const base64 = await print({
-    printBackground: true,
-    preferCSSPageSize: true,
-    paperWidth: 8.27,
-    paperHeight: 11.69,
-    marginTop: 0,
-    marginBottom: 0,
-    marginLeft: 0,
-    marginRight: 0,
-    targetId: page.id,
-  });
+步骤二，把这些 profile 下的 localStorage 复制到临时目录（只复制 Local Storage，不要复制整个 profile）：
 
-  fs.writeFileSync(${JSON.stringify(filename)}, Buffer.from(base64, "base64"));
-  console.log("已导出 ${filename}");
-})();
+\`\`\`bash
+PROFILE="<步骤一确认的 profile 路径，例如 $HOME/Library/Application Support/Google/Chrome/Default>"
+TMP_PROFILE=/tmp/cv-export-profile
+rm -rf "$TMP_PROFILE"
+mkdir -p "$TMP_PROFILE/Default"
+cp -R "$PROFILE/Local Storage" "$TMP_PROFILE/Default/"
+\`\`\`
+
+步骤三，用临时 profile 以 headless 方式打印：
+
+\`\`\`bash
+${chrome} \\
+  --headless \\
+  --disable-gpu \\
+  --no-sandbox \\
+  --no-pdf-header-footer \\
+  --user-data-dir="$TMP_PROFILE" \\
+  --print-to-pdf="${filename}" \\
+  "${printUrl}"
+
+ls -l "${filename}"
+\`\`\`
+
+步骤四，立即删除临时目录（里面包含用户所有站点的 localStorage，不能保留）：
+
+\`\`\`bash
+rm -rf /tmp/cv-export-profile
 \`\`\`
 
 说明：
-- 若 \`/json/print\` 不可用，改用 WebSocket 连接 \`webSocketDebuggerUrl\`，发送 \`Page.printToPDF\`（参数同上：${JSON.stringify(
-    printOptions
-  )}）。
-- 页面在导出时会自动添加 \`body[data-export="pdf"]\`，隐藏面板与滚动条。`;
+- URL 中的 \`?print=1\` 会让预览页直接进入导出态，只保留简历纸张、隐藏所有界面元素；漏掉该参数会打印出整套 UI。
+- 页面已声明 \`@page { size: ${width}mm ${height}mm; margin: 0 }\`，输出按原尺寸裁切且始终一页。
+- \`--no-pdf-header-footer\` 去掉页眉页脚，PDF 中只有简历内容。
+- 如果打印结果是空白或内容明显不是用户自己的简历（例如只有一行示例标题），说明 profile 选错了或数据没复制成功，
+  重新执行步骤一确认，必要时询问用户，而不要直接交付结果。
+- 如果 ${filename} 为空或大小为 0，先检查 Chrome 是否还在使用该 profile，必要时在命令前加 \`sleep 3\` 重试。`;
 };

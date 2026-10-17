@@ -1,7 +1,7 @@
 {
   "name": "@cv/react",
   "version": "0.0.0",
-  "description": "React adapter for @cv/core, no business logic",
+  "description": "React adapter for @cv/core with built-in element views",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": [
@@ -19,6 +19,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@block-kit/core": "1.0.29",
+    "@block-kit/delta": "1.0.29",
+    "@block-kit/plugin": "1.0.29",
+    "@block-kit/react": "1.0.29",
+    "@block-kit/utils": "1.0.29",
     "@cv/core": "workspace: *",
     "@cv/json": "workspace: *",
     "@cv/utils": "workspace: *"

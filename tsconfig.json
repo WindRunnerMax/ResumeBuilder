@@ -23,7 +23,6 @@
       "@cv/utils": ["./packages/utils/src"],
       "@cv/json": ["./packages/json/src"],
       "@cv/core": ["./packages/core/src"],
-      "@cv/plugin": ["./packages/plugin/src"],
       "@cv/react": ["./packages/react/src"]
     }
   },

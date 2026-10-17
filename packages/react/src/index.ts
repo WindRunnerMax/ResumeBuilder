@@ -10,3 +10,5 @@ export { ElementView } from "./preset/element";
 export { EditorProvider, EditorView } from "./preset/editor";
 export type { ElementViewProps } from "./preset/registry";
 export { getElementView, registerElementView } from "./preset/registry";
+export { BASE_PLUGINS, PagePlugin, RectPlugin, TEXT_CLASS, TextModule } from "./plugin/index";
+export { registerBaseViews } from "./plugin/element/views";

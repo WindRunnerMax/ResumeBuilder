@@ -21,7 +21,6 @@
     "@block-kit/utils": "1.0.24",
     "@cv/core": "workspace: *",
     "@cv/json": "workspace: *",
-    "@cv/plugin": "workspace: *",
     "@cv/react": "workspace: *",
     "@cv/utils": "workspace:^",
     "react": "17.0.2",

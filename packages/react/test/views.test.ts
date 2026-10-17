@@ -1,5 +1,5 @@
-import { registerBaseViews } from "../src/element/views";
-import { registerTextBlock } from "../src/element/text";
+import { registerBaseViews } from "../src/plugin/element/views";
+import { registerTextBlock } from "../src/plugin/element/text";
 import { getElementView } from "@cv/react";
 
 describe("element views", () => {

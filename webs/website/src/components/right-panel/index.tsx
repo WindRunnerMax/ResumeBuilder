@@ -1,5 +1,5 @@
-import { Input, InputNumber } from "@arco-design/web-react";
-import { IconLaunch, IconPlus } from "@arco-design/web-react/icon";
+import { Input, InputNumber, Tooltip } from "@arco-design/web-react";
+import { IconPlus } from "@arco-design/web-react/icon";
 import type { ImageNode, PaperSize, RectNode } from "@cv/json";
 import { useCommand, useEditor, useEditorEvent, useMode, useSelection } from "@cv/react";
 import type { FC } from "react";
@@ -62,7 +62,12 @@ export const RightPanel: FC = () => {
     execute({ type: "REVISE", payload: { id: node.id, attrs: { [key]: value } } });
   };
 
-  /** 修改纸张的毫米尺寸，同步换算成 px 写入 */
+  /** 选择预设纸张，尺寸由 core 换算，size 保留预设标识 */
+  const selectPreset = (preset: string) => {
+    execute({ type: "REVISE", payload: { id: node.id, attrs: { size: preset as PaperSize } } });
+  };
+
+  /** 自定义毫米尺寸，写入自定义尺寸对象 */
   const revisePaper = (widthMm: number, heightMm: number) => {
     if (Number.isNaN(widthMm) || Number.isNaN(heightMm) || widthMm <= 0 || heightMm <= 0) return;
     execute({
@@ -94,14 +99,6 @@ export const RightPanel: FC = () => {
 
         <div className="cv-right-panel__head">
           <span className="cv-right-panel__type">{TYPE_LABEL[node.type] || node.type}</span>
-          {!isPage && node.type === "text" && (
-            <button
-              className="cv-btn cv-btn--link"
-              onClick={() => editor.mode.enterTextEdit(node.id)}
-            >
-              <IconLaunch />
-            </button>
-          )}
         </div>
 
         {paper ? (
@@ -109,10 +106,7 @@ export const RightPanel: FC = () => {
             paper={paper}
             width={node.width}
             height={node.height}
-            onPreset={preset => {
-              const mm = SIZE_MM[preset];
-              revisePaper(mm.width, mm.height);
-            }}
+            onPreset={selectPreset}
             onCustom={revisePaper}
             onWidthPx={value => revise("width", value)}
             onHeightPx={value => revise("height", value)}
@@ -159,17 +153,30 @@ export const RightPanel: FC = () => {
         )}
 
         {!isPage && (
-          <div className="cv-right-panel__actions">
-            <button
-              className="cv-btn"
-              onClick={() => {
-                execute({ type: "DELETE", payload: { ids } });
-                editor.selection.clear();
-              }}
-            >
-              删除
-            </button>
-          </div>
+          <>
+            <div className="cv-right-panel__section">操作</div>
+            <div className="cv-right-panel__actions">
+              {node.type === "text" && (
+                <Tooltip content="双击快捷编辑" mini>
+                  <button
+                    className="cv-btn"
+                    onClick={() => editor.mode.enterTextEdit(node.id)}
+                  >
+                    编辑
+                  </button>
+                </Tooltip>
+              )}
+              <button
+                className="cv-btn"
+                onClick={() => {
+                  execute({ type: "DELETE", payload: { ids } });
+                  editor.selection.clear();
+                }}
+              >
+                删除
+              </button>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -195,8 +202,39 @@ const ImagePanel: FC<{
     input.click();
   };
 
+  const border = props.node.border;
+
+  /** 更新边框，宽度为 0 时视为无边框 */
+  const reviseBorder = (patch: { color?: string; width?: number }) => {
+    const next = {
+      width: border?.width ?? 0,
+      color: border?.color || "#DADADA",
+      ...patch,
+    };
+    props.onRevise({ border: next.width > 0 ? next : { ...next, width: 0 } });
+  };
+
   return (
     <div className="cv-right-panel__paper">
+      <div className="cv-right-panel__section">边框</div>
+      <div className="cv-right-panel__row">
+        <span className="cv-right-panel__label">颜色</span>
+        <input
+          type="color"
+          className="cv-color-input"
+          value={border?.color || "#DADADA"}
+          onChange={e => reviseBorder({ color: e.target.value })}
+        />
+        <span className="cv-right-panel__label">宽度</span>
+        <InputNumber
+          size="mini"
+          min={0}
+          max={10}
+          value={border?.width ?? 0}
+          onChange={v => reviseBorder({ width: Number(v) || 0 })}
+        />
+      </div>
+
       <div className="cv-right-panel__section">图片</div>
       <div className="cv-right-panel__actions">
         <button className="cv-btn" onClick={onUpload}>
@@ -273,14 +311,14 @@ const RectPanel: FC<{
         ))}
       </div>
       <div className="cv-right-panel__row" style={{ marginTop: 8 }}>
-        <span className="cv-right-panel__label">色</span>
+        <span className="cv-right-panel__label">颜色</span>
         <input
           type="color"
           className="cv-color-input"
           value={border?.color || "#E4E6EB"}
           onChange={e => reviseBorder({ color: e.target.value })}
         />
-        <span className="cv-right-panel__label">宽</span>
+        <span className="cv-right-panel__label">宽度</span>
         <InputNumber
           size="mini"
           min={1}
@@ -358,9 +396,7 @@ const PaperPanel: FC<{
           />
         </Row>
       </div>
-      <div className="cv-right-panel__hint">
-        白底区域即为最终导出的裁剪范围，尺寸按 96dpi 换算
-      </div>
+      <div className="cv-right-panel__section">操作</div>
       <div className="cv-right-panel__actions">
         <button className="cv-btn" onClick={props.onReset}>
           定位到纸张

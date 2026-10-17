@@ -1,8 +1,7 @@
 import { Editor, LOG_LEVEL } from "@cv/core";
 import type { ResumeDoc } from "@cv/json";
 import { JSONDocument } from "@cv/json";
-import { BasePlugins, registerBaseViews } from "@cv/plugin";
-import { CanvasView, EditorProvider } from "@cv/react";
+import { BASE_PLUGINS, CanvasView, EditorProvider, registerBaseViews } from "@cv/react";
 import type { FC } from "react";
 import React, { useLayoutEffect, useMemo, useRef } from "react";
 
@@ -21,7 +20,7 @@ export const PreviewView: FC<{ doc: ResumeDoc }> = props => {
         doc: new JSONDocument(props.doc),
         readonly: true,
         logLevel: LOG_LEVEL.ERROR,
-        plugins: BasePlugins,
+        plugins: BASE_PLUGINS,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [props.doc]

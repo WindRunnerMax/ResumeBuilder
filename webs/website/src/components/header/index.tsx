@@ -1,8 +1,8 @@
 import { Button, Dropdown, Menu, Message } from "@arco-design/web-react";
 import { IconDown, IconGithub, IconRedo, IconUndo } from "@arco-design/web-react/icon";
-import { useCommand, useEditor, useHistory } from "@cv/react";
+import { useCommand, useEditor, useEditorEvent, useHistory } from "@cv/react";
 import type { FC } from "react";
-import React, { useReducer } from "react";
+import React from "react";
 
 import { NavTools } from "./components/nav";
 import { convertPxToMm } from "../../utils/format";
@@ -18,12 +18,8 @@ export const Header: FC = () => {
   const { undo, redo } = useCommand();
   const { canUndo, canRedo } = useHistory();
   // 纸张尺寸变化后刷新顶栏信息
-  const [, forceUpdate] = useReducer(v => v + 1, 0);
-  React.useEffect(() => {
-    const update = () => forceUpdate();
-    editor.event.on("CONTENT_CHANGE", update);
-    return () => editor.event.off("CONTENT_CHANGE", update);
-  }, [editor]);
+  const [, forceUpdate] = React.useReducer(v => v + 1, 0);
+  useEditorEvent("CONTENT_CHANGE", forceUpdate);
 
   const size = editor.view.getPageSize();
   const pageNode = editor.model.getPage().data;
@@ -66,6 +62,9 @@ export const Header: FC = () => {
   /** 操作菜单 */
   const opMenu = (
     <Menu className="cv-menu">
+      <Menu.Item key="preview" onClick={openExportPage}>
+        预览
+      </Menu.Item>
       <Menu.Item key="import" onClick={onImportJson}>
         导入 JSON
       </Menu.Item>
@@ -79,7 +78,7 @@ export const Header: FC = () => {
   const exportMenu = (
     <Menu className="cv-menu">
       <Menu.Item key="pdf" onClick={openExportPage}>
-        PDF（预览后导出）
+        PDF
       </Menu.Item>
       <Menu.Item key="json" onClick={onExportJson}>
         JSON
@@ -92,7 +91,8 @@ export const Header: FC = () => {
       <div className="cv-header-left">
         <NavTools />
         <span className="cv-header-meta">
-          {paperLabel} · {convertPxToMm(size.width).toFixed(0)} × {convertPxToMm(size.height).toFixed(0)} mm
+          {paperLabel} · {convertPxToMm(size.width).toFixed(0)} × {convertPxToMm(size.height).toFixed(0)}{" "}
+          mm
         </span>
       </div>
       <div className="cv-header-right">
@@ -130,7 +130,7 @@ export const Header: FC = () => {
           className="cv-github"
           target="_blank"
           rel="noreferrer"
-          href="https://github.com/WindrunnerMax/CanvasEditor"
+          href="https://github.com/WindRunnerMax/ResumeBuilder"
         >
           <IconGithub />
         </a>

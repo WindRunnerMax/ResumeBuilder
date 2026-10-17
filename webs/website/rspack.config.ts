@@ -26,7 +26,6 @@ const config: Configuration = {
       "@cv/utils": path.resolve(__dirname, "../../packages/utils/src"),
       "@cv/json": path.resolve(__dirname, "../../packages/json/src"),
       "@cv/core": path.resolve(__dirname, "../../packages/core/src"),
-      "@cv/plugin": path.resolve(__dirname, "../../packages/plugin/src"),
       "@cv/react": path.resolve(__dirname, "../../packages/react/src"),
     },
     extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],

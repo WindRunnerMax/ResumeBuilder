@@ -1,7 +1,6 @@
 import { Editor, LOG_LEVEL } from "@cv/core";
 import { createExampleDoc, JSONDocument } from "@cv/json";
-import { BasePlugins, registerBaseViews } from "@cv/plugin";
-import { CanvasView, EditorProvider, EditorView } from "@cv/react";
+import { BASE_PLUGINS, CanvasView, EditorProvider, EditorView, registerBaseViews } from "@cv/react";
 import type { FC } from "react";
 import React, { useEffect, useMemo } from "react";
 
@@ -20,7 +19,7 @@ registerBaseViews();
 export const App: FC = () => {
   const editor = useMemo(() => {
     const doc = new JSONDocument(loadDocument() || createExampleDoc());
-    return new Editor({ doc, logLevel: LOG_LEVEL.INFO, plugins: BasePlugins });
+    return new Editor({ doc, logLevel: LOG_LEVEL.INFO, plugins: BASE_PLUGINS });
   }, []);
 
   // 内容变更后持久化，供预览 / 导出页读取

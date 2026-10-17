@@ -2,10 +2,11 @@ import type { Op as DeltaOp } from "@block-kit/delta";
 import { Delta } from "@block-kit/delta";
 import type { ContentChangeEvent, Editor as BlockEditor } from "@block-kit/core";
 import { EDITOR_EVENT } from "@block-kit/core";
-import { BlockKit, Editable } from "@block-kit/react";
+import { FloatToolbar, ToolBarMixin } from "@block-kit/plugin";
+import { BlockKit, Editable, useEditorStatic } from "@block-kit/react";
 import type { TextNode } from "@cv/json";
-import type { ElementViewProps } from "@cv/react";
-import { registerElementView, useEditor, useMode } from "@cv/react";
+import type { ElementViewProps } from "../../../index";
+import { registerElementView, useEditor, useMode } from "../../../index";
 import type { FC } from "react";
 import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
@@ -73,6 +74,7 @@ const TextBlockView: FC<ElementViewProps> = props => {
     fontSize: text.style.size,
     lineHeight: text.style.lineHeight,
     color: text.style.color,
+    textAlign: text.style.align || "left",
     // 裁掉超出节点高度的内容
     overflow: "hidden",
     cursor: editing ? "text" : undefined,
@@ -82,8 +84,40 @@ const TextBlockView: FC<ElementViewProps> = props => {
     <div ref={ref} className={TEXT_CLASS} style={style}>
       <BlockKit editor={blockEditor} readonly={!editing}>
         <Editable placeholder="请输入内容" preventDestroy />
+        {editing && <TextToolbar />}
       </BlockKit>
     </div>
+  );
+};
+
+/**
+ * 编辑态浮动工具栏
+ * - 需渲染在 `BlockKit` 内部以获取编辑器 Context
+ * - 选中文字后显示在选区上方，只保留简历场景常用的几项
+ */
+const TextToolbar: FC = () => {
+  const { editor } = useEditorStatic();
+
+  /** 跟随选区定位，超出右边界时回退 */
+  const overridePosition = () => {
+    const rect = editor.rect.getRawSelectionRect();
+    if (!rect) return { top: -999999, left: -999999 };
+    let left = rect.left + rect.width / 2;
+    if (left + 220 > window.innerWidth) left = window.innerWidth - 220;
+    return { top: rect.top - 8, left };
+  };
+
+  return (
+    <FloatToolbar mountDOM={document.body} overridePosition={overridePosition}>
+      <ToolBarMixin.Bold />
+      <ToolBarMixin.Italic />
+      <ToolBarMixin.Underline />
+      <ToolBarMixin.Strike />
+      <ToolBarMixin.Link />
+      <ToolBarMixin.FontSize />
+      <ToolBarMixin.FontColor />
+      <ToolBarMixin.LineHeight />
+    </FloatToolbar>
   );
 };
 

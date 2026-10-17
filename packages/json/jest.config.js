@@ -5,7 +5,6 @@ module.exports = {
     "^@cv/utils$": "<rootDir>/../utils/src",
     "^@cv/json$": "<rootDir>/../json/src",
     "^@cv/core$": "<rootDir>/../core/src",
-    "^@cv/plugin$": "<rootDir>/../plugin/src",
     "^@cv/react$": "<rootDir>/../react/src",
     "src/(.*)$": "<rootDir>/src/$1",
   },

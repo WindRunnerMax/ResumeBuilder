@@ -78,37 +78,41 @@ export const createRect = (options: Partial<RectNode> = {}): RectNode => {
 
 /**
  * 创建一份带示例内容的默认文档
+ * - 上部放一个水平居中的标题与一条分割线，作为空白起点
  */
 export const createDefaultDoc = (): ResumeDoc => {
   const page = createPage("page");
+  const contentWidth = page.width - DEFAULT_PADDING * 2;
+  const titleHeight = 40;
+  const dividerGap = 12;
+  // 距顶部留出一定边距，约 1/6 纸高
+  const titleY = Math.round(page.height / 6);
   const title = createText({
     id: getUniqueId(),
     parent: page.id,
     x: DEFAULT_PADDING,
-    y: DEFAULT_PADDING,
-    width: page.width - DEFAULT_PADDING * 2,
-    height: 40,
-    delta: [{ insert: "张三", attributes: { "font-size": "24", bold: "true" } }],
-    style: { family: "PingFang SC", size: 24, weight: "bold", lineHeight: 1.4, color: "#1F2328" },
+    y: titleY,
+    width: contentWidth,
+    height: titleHeight,
+    delta: [{ insert: "基于 DOM 实现的简历编辑器", attributes: { "font-size": "24", bold: "true" } }],
+    style: {
+      family: "PingFang SC",
+      size: 24,
+      weight: "bold",
+      lineHeight: 1.4,
+      color: "#1F2328",
+      align: "center",
+    },
   });
   const divider = createRect({
     id: getUniqueId(),
     parent: page.id,
     x: DEFAULT_PADDING,
-    y: DEFAULT_PADDING + 52,
-    width: page.width - DEFAULT_PADDING * 2,
+    y: titleY + titleHeight + dividerGap,
+    width: contentWidth,
     height: 1,
   });
-  const body = createText({
-    id: getUniqueId(),
-    parent: page.id,
-    x: DEFAULT_PADDING,
-    y: DEFAULT_PADDING + 68,
-    width: page.width - DEFAULT_PADDING * 2,
-    height: 60,
-    delta: [{ insert: "点击工具栏的编辑按钮或双击文本进入编辑。" }],
-  });
-  page.children = [title.id, divider.id, body.id];
+  page.children = [title.id, divider.id];
   return {
     version: DOC_VERSION,
     root: page.id,
@@ -116,7 +120,6 @@ export const createDefaultDoc = (): ResumeDoc => {
       [page.id]: page,
       [title.id]: title,
       [divider.id]: divider,
-      [body.id]: body,
     },
   };
 };

@@ -20,6 +20,22 @@ export const CanvasView: FC<{ className?: string }> = props => {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [dirty, setDirty] = useState(0);
 
+  // 画布内链接统一在新页面打开，编辑态则阻止跳转以免打断输入
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const onClick = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement | null)?.closest("a");
+      if (!anchor) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const href = anchor.getAttribute("href");
+      if (href && !editor.mode.isTextEdit()) window.open(href, "_blank", "noopener");
+    };
+    stage.addEventListener("click", onClick, true);
+    return () => stage.removeEventListener("click", onClick, true);
+  }, [editor]);
+
   useLayoutEffect(() => {
     editor.view.setStage(stageRef.current);
     editor.view.setPage(pageRef.current);

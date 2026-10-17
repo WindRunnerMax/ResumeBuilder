@@ -35,7 +35,7 @@ const PRIORITY_PREFIX = "__PRIORITY__";
 /**
  * 核心插件
  * - 作用于数据与行为层
- * - 视图插件在 @cv/plugin 中实现
+ * - 视图插件在 @cv/react 中实现
  */
 export abstract class CorePlugin {
   /** 插件唯一标识 */

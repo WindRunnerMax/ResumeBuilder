@@ -12,6 +12,14 @@ import { loadDocument } from "../../utils/storage";
 /** 保留一位小数 */
 const round = (value: number) => Math.round(value * 10) / 10;
 
+/** 当前是否处于自动打印模式，URL 带 `?print=1` */
+const isPrintMode = (): boolean => {
+  const index = location.href.indexOf("?");
+  const hash = location.href.indexOf("#", index + 1);
+  const query = index > -1 ? location.href.slice(index + 1, hash > -1 ? hash : undefined) : "";
+  return new URLSearchParams(query).get("print") === "1";
+};
+
 /**
  * 导出 / 预览页面
  * - 左侧为简历预览，右侧为导出面板
@@ -22,6 +30,12 @@ export const PreviewPage: FC = () => {
   const page = doc.nodes[doc.root];
   const paper = page && page.type === "page" ? page.size : "A4";
   const mm = toPaperMm(paper);
+
+  // 自动打印模式：直接进入导出态，只保留纸张，供 headless Chrome 命令行打印
+  useEffect(() => {
+    if (!isPrintMode()) return;
+    document.body.setAttribute("data-export", "pdf");
+  }, []);
 
   // 导出裁剪范围跟随纸张尺寸，随页面一起写入 @page
   useEffect(() => {

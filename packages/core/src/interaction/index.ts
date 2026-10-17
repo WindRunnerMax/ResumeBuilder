@@ -351,11 +351,21 @@ export class Interaction {
   };
 
   /** 键盘事件 */
+  /** 焦点是否在输入控件内，避免抢占用户输入 */
+  private isEditingInput(): boolean {
+    const el = document.activeElement as HTMLElement | null;
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+  }
+
   private onKeyDown = (e: KeyboardEvent) => {
     if (this.editor.mode.isTextEdit()) {
       e.key === "Escape" && this.editor.mode.exitTextEdit();
       return;
     }
+    // 焦点在输入框等控件内时不响应画布快捷键
+    if (this.isEditingInput()) return;
     // Esc 退出抓手工具
     if (e.key === "Escape" && this.editor.tool === "GRAB") {
       this.editor.tool = null;
