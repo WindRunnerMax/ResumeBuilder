@@ -5,12 +5,10 @@ import { EDITOR_MODE, HANDLE_KEY } from "../utils/constant";
 
 /** 手柄尺寸 */
 const HANDLE_SIZE = 8;
-/** 提示延迟 */
-const TOOLTIP_DELAY = 300;
 
 /**
  * 覆盖层
- * - 绘制选中框、缩放手柄、hover 描边与提示
+ * - 绘制选中框与缩放手柄
  * - 纯 CSS 定位，不参与数据
  */
 export class Overlay {
@@ -20,10 +18,8 @@ export class Overlay {
   private box: HTMLElement | null = null;
   /** 手柄集合 */
   private handles: HTMLElement[] = [];
-  /** 悬停提示 */
-  private tooltip: HTMLElement | null = null;
-  /** 提示计时器 */
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  /** 框选虚线框 */
+  private marquee: HTMLElement | null = null;
 
   public constructor(private editor: Editor) {}
 
@@ -59,18 +55,28 @@ export class Overlay {
       this.handles.push(el);
     });
 
-    this.tooltip = document.createElement("div");
-    this.tooltip.style.position = "absolute";
-    this.tooltip.style.padding = "4px 8px";
-    this.tooltip.style.fontSize = "12px";
-    this.tooltip.style.background = "rgba(0,0,0,0.75)";
-    this.tooltip.style.color = "#FFFFFF";
-    this.tooltip.style.borderRadius = "4px";
-    this.tooltip.style.whiteSpace = "nowrap";
-    this.tooltip.style.display = "none";
-    this.tooltip.style.pointerEvents = "none";
-    this.tooltip.textContent = "双击进入编辑";
-    root.appendChild(this.tooltip);
+    this.marquee = document.createElement("div");
+    this.marquee.style.position = "absolute";
+    this.marquee.style.border = "1px solid #1664FF";
+    this.marquee.style.background = "rgba(22, 100, 255, 0.06)";
+    this.marquee.style.display = "none";
+    this.marquee.style.pointerEvents = "none";
+    root.appendChild(this.marquee);
+  }
+
+  /** 显示框选框 */
+  public showMarquee(rect: { x: number; y: number; width: number; height: number }): void {
+    if (!this.marquee) return;
+    const offset = this.editor.view.getPaperOffset();
+    this.marquee.style.display = "block";
+    this.marquee.style.transform = `translate3d(${rect.x + offset.x}px, ${rect.y + offset.y}px, 0)`;
+    this.marquee.style.width = `${rect.width}px`;
+    this.marquee.style.height = `${rect.height}px`;
+  }
+
+  /** 隐藏框选框 */
+  public hideMarquee(): void {
+    this.marquee && (this.marquee.style.display = "none");
   }
 
   /** 手柄光标 */
@@ -98,21 +104,27 @@ export class Overlay {
     if (!bounds || editing) {
       this.box.style.display = "none";
       this.handles.forEach(el => (el.style.display = "none"));
-      this.hideTooltip();
       return;
     }
+    const offset = this.editor.view.getPaperOffset();
     this.box.style.display = "block";
-    this.box.style.transform = `translate3d(${bounds.x}px, ${bounds.y}px, 0)`;
+    this.box.style.transform = `translate3d(${bounds.x + offset.x}px, ${bounds.y + offset.y}px, 0)`;
     this.box.style.width = `${bounds.width}px`;
     this.box.style.height = `${bounds.height}px`;
+    // 纸张只能通过属性面板设置尺寸，不显示缩放手柄
+    if (this.editor.selection.has(this.editor.document.get().root)) {
+      this.handles.forEach(el => (el.style.display = "none"));
+      return;
+    }
     this.patchHandles(bounds);
   }
 
   /** 只刷新选框位置，拖拽预览用 */
   public previewBox(bounds: { x: number; y: number; width: number; height: number }): void {
     if (!this.box) return;
+    const offset = this.editor.view.getPaperOffset();
     this.box.style.display = "block";
-    this.box.style.transform = `translate3d(${bounds.x}px, ${bounds.y}px, 0)`;
+    this.box.style.transform = `translate3d(${bounds.x + offset.x}px, ${bounds.y + offset.y}px, 0)`;
     this.box.style.width = `${bounds.width}px`;
     this.box.style.height = `${bounds.height}px`;
     this.patchHandles(bounds);
@@ -120,12 +132,13 @@ export class Overlay {
 
   /** 刷新手柄位置 */
   private patchHandles(bounds: { x: number; y: number; width: number; height: number }): void {
+    const offset = this.editor.view.getPaperOffset();
     this.handles.forEach((el, index) => {
       const handle = Object.values(HANDLE)[index];
       const point = this.getHandlePoint(bounds, handle);
       el.style.display = "block";
-      el.style.transform = `translate3d(${point.x - HANDLE_SIZE / 2}px, ${
-        point.y - HANDLE_SIZE / 2
+      el.style.transform = `translate3d(${point.x + offset.x - HANDLE_SIZE / 2}px, ${
+        point.y + offset.y - HANDLE_SIZE / 2
       }px, 0)`;
     });
   }
@@ -155,36 +168,14 @@ export class Overlay {
     }
   }
 
-  /** 显示悬停提示 */
-  public showTooltip(x: number, y: number): void {
-    if (!this.tooltip) return;
-    this.timer && clearTimeout(this.timer);
-    this.timer = setTimeout(() => {
-      if (!this.tooltip) return;
-      this.tooltip.style.display = "block";
-      this.tooltip.style.transform = `translate3d(${x}px, ${y + 16}px, 0)`;
-    }, TOOLTIP_DELAY);
-  }
-
-  /** 隐藏悬停提示 */
-  public hideTooltip(): void {
-    this.timer && clearTimeout(this.timer);
-    this.timer = null;
-    this.tooltip && (this.tooltip.style.display = "none");
-  }
-
   /** 销毁 */
   public destroy(): void {
-    this.timer && clearTimeout(this.timer);
-    this.timer = null;
     if (this.root) {
       this.box && this.root.removeChild(this.box);
       this.handles.forEach(el => this.root && this.root.removeChild(el));
-      this.tooltip && this.root.removeChild(this.tooltip);
     }
     this.root = null;
     this.box = null;
     this.handles = [];
-    this.tooltip = null;
   }
 }

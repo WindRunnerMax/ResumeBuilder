@@ -1,7 +1,9 @@
 import type { FC } from "react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 import { createCdpPrompt, detectExtension, exportPdf, hasExtension, waitForAssets } from "../../utils/pdf";
+import { toPaperMm } from "../../utils/paper";
+import { loadDocument } from "../../utils/storage";
 
 /** 导出状态 */
 type Status = "idle" | "exporting" | "done" | "error";
@@ -12,10 +14,17 @@ export const ExportPanel: FC = () => {
   const [installed, setInstalled] = useState(hasExtension());
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
-  const [prompt, setPrompt] = useState("");
+  const [copyResult, setCopyResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     detectExtension().then(setInstalled);
+  }, []);
+
+  // 纸张尺寸即导出的裁剪范围
+  const paper = useMemo(() => {
+    const doc = loadDocument();
+    const page = doc && doc.nodes[doc.root];
+    return toPaperMm(page && page.type === "page" ? page.size : "A4");
   }, []);
 
   /**
@@ -28,7 +37,7 @@ export const ExportPanel: FC = () => {
     document.body.setAttribute("data-export", "pdf");
     try {
       await waitForAssets();
-      await exportPdf(filename || "resume.pdf");
+      await exportPdf(filename || "resume.pdf", paper);
       setStatus("done");
       setMessage("已开始下载");
     } catch (error) {
@@ -39,15 +48,14 @@ export const ExportPanel: FC = () => {
     }
   };
 
-  /** 生成给 Agent 的 CDP 指令 */
+  /** 生成给 Agent 的 CDP 指令并写入剪贴板 */
   const onCopyPrompt = async () => {
-    const text = createCdpPrompt(filename || "resume.pdf");
-    setPrompt(text);
+    const text = createCdpPrompt(filename || "resume.pdf", paper);
     try {
       await navigator.clipboard.writeText(text);
-      setMessage("指令已复制，可直接粘贴给 Agent");
+      setCopyResult({ ok: true, text: "已复制到剪贴板，可直接粘贴给 Agent" });
     } catch {
-      setMessage("复制失败，请手动选中下方文本");
+      setCopyResult({ ok: false, text: "复制失败，请检查浏览器剪贴板权限" });
     }
   };
 
@@ -129,13 +137,10 @@ export const ExportPanel: FC = () => {
         <button style={styles.secondary} onClick={onCopyPrompt}>
           复制 CDP 指令
         </button>
-        {prompt && (
-          <textarea
-            readOnly
-            value={prompt}
-            style={styles.textarea}
-            onFocus={e => e.currentTarget.select()}
-          />
+        {copyResult && (
+          <div style={{ ...styles.message, color: copyResult.ok ? "#079455" : "#D92D20" }}>
+            {copyResult.text}
+          </div>
         )}
       </Section>
     </div>
@@ -200,17 +205,5 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#F5F6F7",
     padding: "1px 4px",
     borderRadius: 3,
-  },
-  textarea: {
-    width: "100%",
-    height: 220,
-    padding: 10,
-    fontSize: 11,
-    fontFamily: "Menlo, monospace",
-    lineHeight: 1.6,
-    border: "1px solid #E4E6EB",
-    borderRadius: 6,
-    resize: "vertical",
-    background: "#FAFBFC",
   },
 };

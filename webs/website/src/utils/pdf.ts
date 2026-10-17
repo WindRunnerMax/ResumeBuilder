@@ -1,3 +1,5 @@
+import { mmToInch } from "./paper";
+
 /** 扩展消息类型，与 webs/pdf 保持一致 */
 export const CDP_EXPORT_PDF = "CDP_EXPORT_PDF";
 
@@ -62,11 +64,15 @@ export const detectExtension = (): Promise<boolean> => {
   });
 };
 
+/** 纸张尺寸，单位为毫米 */
+export type PaperMm = { width: number; height: number };
+
 /**
  * 通过扩展导出 PDF
  * @param filename 文件名
+ * @param paper 纸张毫米尺寸，作为裁剪范围
  */
-export const exportPdf = (filename: string): Promise<boolean> => {
+export const exportPdf = (filename: string, paper: PaperMm): Promise<boolean> => {
   return new Promise((resolve, reject) => {
     const runtime = typeof chrome !== "undefined" ? chrome && chrome.runtime : undefined;
     if (!runtime || !runtime.id) {
@@ -77,7 +83,16 @@ export const exportPdf = (filename: string): Promise<boolean> => {
       type: CDP_EXPORT_PDF,
       payload: {
         filename,
-        options: { printBackground: true, preferCSSPageSize: true },
+        options: {
+          printBackground: true,
+          preferCSSPageSize: true,
+          paperWidth: mmToInch(paper.width),
+          paperHeight: mmToInch(paper.height),
+          marginTop: 0,
+          marginBottom: 0,
+          marginLeft: 0,
+          marginRight: 0,
+        },
       },
     };
     try {
@@ -117,12 +132,12 @@ export const waitForAssets = async (): Promise<void> => {
  * - 不依赖 ws 等额外包，使用 CDP 的 HTTP 端点
  * - 让 Agent 直接在已打开页面的 Chrome 上执行
  */
-export const createCdpPrompt = (filename: string): string => {
+export const createCdpPrompt = (filename: string, paper: PaperMm): string => {
   const printOptions = {
     printBackground: true,
     preferCSSPageSize: true,
-    paperWidth: 8.27,
-    paperHeight: 11.69,
+    paperWidth: mmToInch(paper.width),
+    paperHeight: mmToInch(paper.height),
     marginTop: 0,
     marginBottom: 0,
     marginLeft: 0,

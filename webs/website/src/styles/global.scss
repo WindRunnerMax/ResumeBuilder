@@ -1,3 +1,5 @@
+@import "./variable";
+
 /** 全局样式 */
 
 * {
@@ -7,7 +9,8 @@
 html,
 body,
 #root {
-  height: 100%;
+  @include full-screen;
+
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -16,42 +19,661 @@ body,
 body {
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Microsoft YaHei",
     sans-serif;
-  background: #f5f6f7;
-  color: #1f2328;
+  background: var(--color-fill-2);
+  color: var(--color-text-1);
   -webkit-font-smoothing: antialiased;
 }
 
-/** 画布视口：隐藏滚动条但保留滚动能力 */
-.cv-viewport {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
+/** ========== 编辑页布局 ========== */
 
-.cv-viewport::-webkit-scrollbar {
-  display: none;
-}
-
-/** 只读预览：纸张居中展示，不滚动 */
-.cv-preview {
-  width: 100%;
+.cv-editor {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
 
-  .cv-preview-stage {
-    position: relative;
-    flex-shrink: 0;
-    width: max-content;
-    height: max-content;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+.cv-editor__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/** 顶栏 */
+
+.cv-header-root {
+  @include flex-align-center;
+  @include flex-justify-between;
+
+  height: $header-height;
+  flex-shrink: 0;
+  padding: 0 12px;
+  background: var(--color-bg-1);
+  border-bottom: 1px solid var(--color-border-2);
+}
+
+.cv-header-left {
+  @include flex-align-center;
+
+  gap: 12px;
+}
+
+/** 顶栏左侧工具栏 */
+
+.cv-nav-tools {
+  @include flex-align-center;
+}
+
+.cv-nav-tool {
+  @include flex-center;
+  @include border-radius-3;
+
+  cursor: pointer;
+  font-size: 18px;
+  height: 23px;
+  margin-right: 10px;
+  padding: 3px;
+  width: 23px;
+
+  &:hover {
+    background-color: var(--color-fill-1);
+  }
+
+  &.is-active {
+    background-color: var(--color-fill-2);
   }
 }
 
-/** 导出态：纸张按实际毫米尺寸输出，保证单页 */
+.cv-header-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.cv-header-meta {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.cv-header-right {
+  @include flex-align-center;
+
+  gap: 6px;
+}
+
+.cv-header-op {
+  @include flex-center;
+  @include border-radius-3;
+
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: 15px;
+  color: var(--color-text-1);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: var(--color-fill-1);
+    border-color: var(--color-border-2);
+  }
+
+  &:disabled {
+    color: var(--color-text-4);
+    cursor: not-allowed;
+  }
+}
+
+.cv-header-btn {
+  @include border-radius-3;
+
+  height: 26px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: var(--color-text-1);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-fill-1);
+  }
+}
+
+/** 左侧面板 */
+
+.cv-left-panel {
+  width: $panel-width;
+  flex-shrink: 0;
+  background: var(--color-bg-1);
+  border-right: 1px solid var(--color-border-2);
+
+  .arco-tabs-content {
+    padding-top: 0;
+  }
+
+  .arco-tabs-header-nav::before {
+    display: none;
+  }
+}
+
+.cv-tools {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/** 模板面板：两列网格 */
+
+.cv-template {
+  @include no-scrollbar;
+
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 0 10px;
+}
+
+.cv-template__row {
+  @include flex-align-center;
+
+  margin-top: 15px;
+}
+
+.cv-template__item {
+  cursor: pointer;
+  margin: 0 15px;
+  width: 100%;
+}
+
+.cv-template__preview {
+  color: var(--color-text-2);
+  overflow: hidden;
+}
+
+.cv-template__img {
+  @include flex-center;
+
+  border: 3px solid var(--color-border-2);
+  box-sizing: border-box;
+  height: 130px;
+  overflow: hidden;
+  width: 100%;
+
+  img {
+    object-fit: contain;
+    width: 100%;
+  }
+}
+
+.cv-template__name {
+  @include flex-center;
+
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.cv-tool-item {
+  @include border-radius-3;
+
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border: 1px solid var(--color-border-2);
+  background: var(--color-bg-1);
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: rgb(var(--primary-6));
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  }
+}
+
+.cv-tool-item__label {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cv-tool-item__desc {
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.cv-structure {
+  @include no-scrollbar;
+
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.cv-structure__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-3);
+  margin: 10px 0 6px;
+}
+
+.cv-structure-item {
+  @include flex-align-center;
+  @include border-radius-3;
+
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+
+  &:hover {
+    background: var(--color-fill-1);
+  }
+
+  &.is-active {
+    background: rgb(var(--primary-1));
+    border-color: rgb(var(--primary-5));
+  }
+}
+
+.cv-structure-item__type {
+  flex: 1;
+}
+
+.cv-structure-item__id {
+  font-family: Menlo, monospace;
+  font-size: 11px;
+  color: var(--color-text-3);
+}
+
+.cv-structure-item__del {
+  color: var(--color-text-3);
+
+  &:hover {
+    color: rgb(var(--red-6));
+  }
+}
+
+.cv-empty {
+  padding: 24px 12px;
+  font-size: 12px;
+  color: var(--color-text-3);
+  text-align: center;
+}
+
+/** 画布 */
+
+.cv-canvas {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: var(--color-fill-2);
+}
+
+/** 画布视口：隐藏滚动条，保留滚动能力 */
+.cv-viewport {
+  @include no-scrollbar;
+}
+
+/** 大画板，纸张在其中居中 */
+[data-cv-board="true"] {
+  position: relative;
+  background-image: radial-gradient(var(--color-fill-3) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/** 纸张：最终导出的裁剪范围 */
+[data-page-root="true"] {
+  background: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+}
+
+/** 纸张尺寸设置 */
+
+.cv-right-panel__section {
+  margin: 12px 0 8px;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.cv-right-panel__paper {
+  display: flex;
+  flex-direction: column;
+}
+
+.cv-paper-presets {
+  display: flex;
+  gap: 6px;
+}
+
+.cv-paper-preset {
+  @include border-radius-3;
+
+  flex: 1;
+  height: 26px;
+  font-size: 12px;
+  color: var(--color-text-1);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
+  cursor: pointer;
+
+  &:hover {
+    border-color: rgb(var(--primary-5));
+  }
+
+  &.is-active {
+    color: rgb(var(--primary-6));
+    background: rgb(var(--primary-1));
+    border-color: rgb(var(--primary-5));
+  }
+}
+
+.cv-right-panel__hint {
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--color-text-3);
+}
+
+/** 取色器 */
+.cv-color-input {
+  width: 40px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--color-border-2);
+  border-radius: 3px;
+  background: var(--color-bg-2);
+  cursor: pointer;
+}
+
+/** 右侧浮动属性面板 */
+
+.cv-right-panel {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: $tool-panel-width;
+  max-height: calc(100% - 40px);
+  z-index: 2;
+
+  .cv-right-panel__scroll {
+    @include frame-border;
+    @include no-scrollbar;
+
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    padding: 12px 15px;
+  }
+
+  &.is-collapse {
+    width: 0;
+
+    .cv-right-panel__scroll {
+      display: none;
+    }
+
+    .cv-right-panel__op {
+      transform: rotate(0deg);
+    }
+  }
+}
+
+.cv-right-panel__op {
+  @include flex-center;
+
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 26px;
+  height: 26px;
+  z-index: 3;
+  font-size: 14px;
+  color: var(--color-text-2);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
+  border-radius: 50%;
+  cursor: pointer;
+  transform: rotate(45deg);
+  transition: all 0.1s linear;
+}
+
+.cv-right-panel__head {
+  @include flex-align-center;
+  @include flex-justify-between;
+
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--color-border-2);
+}
+
+.cv-right-panel__type {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgb(var(--primary-6));
+}
+
+/** 四角坐标矩阵 */
+
+.cv-right-panel__matrix {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.cv-right-panel__frame {
+  grid-column: 1 / 3;
+  grid-row: 1 / 3;
+  justify-self: center;
+  width: 120px;
+  height: 76px;
+  border: 1px solid var(--color-text-3);
+  background: var(--color-fill-1);
+}
+
+.cv-matrix__pos {
+  position: relative;
+  font-size: 12px;
+  color: var(--color-text-3);
+  font-family: Menlo, monospace;
+  white-space: nowrap;
+
+  &--lt {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: start;
+  }
+
+  &--rt {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  &--lb {
+    grid-column: 1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  &--rb {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+}
+
+.cv-right-panel__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.cv-right-panel__row {
+  @include flex-align-center;
+
+  gap: 6px;
+}
+
+.cv-right-panel__label {
+  width: 18px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+.cv-right-panel__actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+}
+
+.cv-btn {
+  @include border-radius-3;
+
+  height: 26px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--color-text-1);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-fill-1);
+  }
+}
+
+.cv-btn--primary {
+  color: #fff;
+  background: rgb(var(--primary-6));
+  border-color: rgb(var(--primary-6));
+
+  &:hover {
+    background: rgb(var(--primary-5));
+  }
+}
+
+.cv-btn--link {
+  padding: 0;
+  font-size: 14px;
+  color: rgb(var(--primary-6));
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+
+  &:hover {
+    color: rgb(var(--primary-5));
+  }
+}
+
+/** 顶栏右侧 */
+
+.cv-history {
+  @include flex-align-center;
+
+  margin-right: 5px;
+}
+
+.cv-github {
+  @include flex-center;
+
+  color: var(--color-text-1);
+  font-size: 20px;
+  margin-left: 8px;
+  margin-right: 10px;
+}
+
+.cv-menu {
+  .arco-dropdown-menu-item,
+  .arco-menu-item {
+    font-size: 12px;
+  }
+}
+
+/** 文本编辑态：显示编辑边框 */
+
+[data-type="text"][data-editing="true"] {
+  outline: 2px solid rgb(var(--primary-6));
+}
+
+.cv-text-block {
+  width: 100%;
+  height: 100%;
+  outline: none;
+
+  p {
+    margin: 0;
+  }
+}
+
+/** ========== 预览导出页 ========== */
+
+.cv-export {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.cv-export-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.cv-export-scroll {
+  @include no-scrollbar;
+
+  flex: 1;
+  padding: 32px;
+  overflow: auto;
+  background: var(--color-fill-2);
+}
+
+.cv-export-panel {
+  @include no-scrollbar;
+
+  width: 340px;
+  flex-shrink: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow: auto;
+  background: var(--color-bg-1);
+  border-left: 1px solid var(--color-border-2);
+}
+
+/** 只读预览 */
+
+.cv-preview {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.cv-preview-stage {
+  position: relative;
+  flex-shrink: 0;
+  width: max-content;
+  height: max-content;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+}
+
+/** 导出态：只保留纸张 */
+
 body[data-export="pdf"] {
   overflow: hidden !important;
 
-  .cv-header,
-  .cv-panel,
+  .cv-header-root,
+  .cv-left-panel,
+  .cv-right-panel,
   .cv-export-panel {
     display: none !important;
   }
@@ -70,13 +692,12 @@ body[data-export="pdf"] {
   .cv-export-scroll {
     padding: 0 !important;
     overflow: visible !important;
-    background: #ffffff !important;
+    background: #fff !important;
   }
 
   .cv-preview {
     display: block !important;
-    width: 210mm !important;
-    background: #ffffff !important;
+    background: #fff !important;
   }
 
   .cv-preview-stage {
@@ -86,9 +707,4 @@ body[data-export="pdf"] {
   .cv-viewport {
     overflow: visible !important;
   }
-}
-
-@page {
-  size: 210mm 297mm;
-  margin: 0;
 }

@@ -154,6 +154,9 @@ export class Model {
       const state = this.states.get(id);
       if (node && state) {
         state.setNode(node);
+      } else if (node && !state) {
+        // 新插入的节点，创建运行时状态
+        this.states.set(id, new ElementState(node));
       } else if (!node && state) {
         this.states.delete(id);
       }

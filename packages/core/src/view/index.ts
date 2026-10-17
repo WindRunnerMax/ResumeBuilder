@@ -5,23 +5,29 @@ import { mmToPx, PAPER_SIZE } from "@cv/utils";
 import type { Editor } from "../editor";
 import { resolvePaperSize } from "../model/utils";
 
-/** 页面四周留白（px） */
-const STAGE_GAP = 120;
+/** 画板尺寸（px），即可滚动区域的上限 */
+export const BOARD_SIZE = 5000;
 
 /**
  * 视口模块
- * - 管理 viewport / stage / page 三层 DOM
+ * - 管理 viewport / board / page 三层 DOM
+ * - board 为固定 5000×5000 的大画板，page 在其中自由摆放
  * - 不提供 zoom，坐标换算恒定
  */
 export class View {
   /** 外层滚动容器 */
   private viewport: HTMLElement | null;
-  /** 内层舞台，撑开滚动尺寸 */
+  /** 大画板，撑开滚动尺寸 */
   private stage: HTMLElement | null;
   /** 纸张节点 */
   private page: HTMLElement | null;
   /** 尺寸观察器 */
   private observer: ResizeObserver | null;
+  /** 纸张左上角在画板中的坐标 */
+  private paperX = 0;
+  private paperY = 0;
+  /** 纸张尺寸缓存，用于跳过无意义的 layout */
+  private paperKey = "";
   /** 上一次广播的视口尺寸，避免重复触发 */
   private lastWidth = 0;
   private lastHeight = 0;
@@ -36,15 +42,31 @@ export class View {
   /** 挂载到容器 */
   public mount(container: HTMLElement): void {
     this.viewport = container;
-    // 只读预览不滚动，编辑态保留滚动以浏览超出视口的纸张
+    // 只读预览不滚动，编辑态保留滚动以浏览画板
     container.style.overflow = this.editor.isReadonly() ? "visible" : "auto";
     container.style.position = "relative";
     this.observer = new ResizeObserver(() => this.layout());
     this.observer.observe(container);
+    // 编辑态接管滚轮，保证斜向（deltaX + deltaY）平移
+    if (!this.editor.isReadonly()) {
+      container.addEventListener("wheel", this.onWheel, { passive: false });
+    }
     this.layout();
+    this.scrollToPaper();
   }
+
+  /** 滚轮平移：deltaX 与 deltaY 同时生效，实现斜向滚动 */
+  private onWheel = (e: WheelEvent) => {
+    const viewport = this.viewport;
+    if (!viewport) return;
+    e.preventDefault();
+    viewport.scrollLeft += e.deltaX;
+    viewport.scrollTop += e.deltaY;
+  };
+
   /** 卸载 */
   public destroy(): void {
+    this.viewport && this.viewport.removeEventListener("wheel", this.onWheel);
     this.observer && this.observer.disconnect();
     this.observer = null;
     this.viewport = null;
@@ -52,21 +74,28 @@ export class View {
     this.page = null;
   }
 
-  /** 注册由 React 渲染的 stage 节点 */
+  /** 注册由 React 渲染的 board 节点 */
   public setStage(stage: HTMLElement | null): void {
     this.stage = stage;
     this.layout();
+    this.scrollToPaper();
   }
 
   /** 注册由 React 渲染的 page 节点 */
   public setPage(page: HTMLElement | null): void {
     this.page = page;
     this.layout();
+    this.scrollToPaper();
   }
 
   /** 获取纸张节点 */
   public getPage(): HTMLElement | null {
     return this.page;
+  }
+
+  /** 纸张在画板中的偏移 */
+  public getPaperOffset(): { x: number; y: number } {
+    return { x: this.paperX, y: this.paperY };
   }
 
   /** 获取视口节点 */
@@ -84,45 +113,69 @@ export class View {
     return { width: size.width, height: size.height };
   }
 
-  /** 重新计算舞台尺寸与留白 */
+  /** 重新计算画板与纸张位置 */
   public layout(): void {
     const stage = this.stage;
     const viewport = this.viewport;
     if (!stage || !viewport) return;
     const { width, height } = this.getPageSize();
     const page = this.page;
-    // 只读预览：舞台与纸张一一对应，不滚动、不居中
+
+    // 只读预览：画板与纸张一一对应，不滚动
     if (this.editor.isReadonly()) {
       stage.style.width = `${width}px`;
       stage.style.height = `${height}px`;
-      stage.style.margin = "0";
       if (page) {
         page.style.left = "0";
         page.style.top = "0";
         page.style.width = `${width}px`;
         page.style.height = `${height}px`;
       }
+      this.paperKey = `${width}x${height}`;
       return;
     }
-    const viewWidth = viewport.clientWidth;
-    const viewHeight = viewport.clientHeight;
-    // 舞台至少铺满视口，纸张不足时居中，超出时保留留白以撑开滚动
-    const stageWidth = Math.max(viewWidth, width + STAGE_GAP * 2);
-    const stageHeight = Math.max(viewHeight, height + STAGE_GAP * 2);
-    stage.style.width = `${stageWidth}px`;
-    stage.style.height = `${stageHeight}px`;
+
+    // 纸张始终位于画板中央
+    this.paperX = Math.round((BOARD_SIZE - width) / 2);
+    this.paperY = Math.round((BOARD_SIZE - height) / 2);
+    stage.style.width = `${BOARD_SIZE}px`;
+    stage.style.height = `${BOARD_SIZE}px`;
     if (page) {
-      page.style.left = `${Math.round((stageWidth - width) / 2)}px`;
-      page.style.top = `${STAGE_GAP}px`;
+      page.style.left = `${this.paperX}px`;
+      page.style.top = `${this.paperY}px`;
       page.style.width = `${width}px`;
       page.style.height = `${height}px`;
     }
+
+    // 纸张尺寸变化时按新的纸张位置重画选中框
+    const key = `${width}x${height}`;
+    if (this.paperKey && this.paperKey !== key) {
+      this.editor.overlay.patch();
+    }
+    this.paperKey = key;
+
     // 仅在视口尺寸真正变化时广播，避免 layout 与 RESIZE 互相递归
+    const viewWidth = viewport.clientWidth;
+    const viewHeight = viewport.clientHeight;
     if (viewWidth !== this.lastWidth || viewHeight !== this.lastHeight) {
       this.lastWidth = viewWidth;
       this.lastHeight = viewHeight;
       this.editor.event.trigger("RESIZE", { width: viewWidth, height: viewHeight });
     }
+  }
+
+  /**
+   * 首次挂载时把纸张滚动到视口中间
+   * - 纸张宽度超过视口时左对齐，避免两边都被裁掉
+   */
+  public scrollToPaper(): void {
+    const viewport = this.viewport;
+    if (!viewport || this.editor.isReadonly()) return;
+    const { width, height } = this.getPageSize();
+    const left = width >= viewport.clientWidth ? this.paperX : this.paperX - (viewport.clientWidth - width) / 2;
+    const top = height >= viewport.clientHeight ? this.paperY : this.paperY - (viewport.clientHeight - height) / 2;
+    viewport.scrollLeft = Math.max(0, Math.round(left));
+    viewport.scrollTop = Math.max(0, Math.round(top));
   }
 
   /**
@@ -154,6 +207,12 @@ export class View {
     if (!(target instanceof HTMLElement)) return null;
     const el = target.closest<HTMLElement>("[data-element-id]");
     return el ? el.getAttribute("data-element-id") : null;
+  }
+
+  /** 事件目标是否为纸张空白处 */
+  public isPaperTarget(target: EventTarget | null): boolean {
+    if (!(target instanceof HTMLElement) || !this.page) return false;
+    return this.page.contains(target) && !target.closest("[data-element-id]");
   }
 
   /** 给节点写入位置与尺寸 */

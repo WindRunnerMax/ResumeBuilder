@@ -1,7 +1,6 @@
 import type { Op as DeltaOp } from "@block-kit/delta";
-import type { Op, ResumeNode } from "@cv/json";
-import { JSONDocument } from "@cv/json";
-import type { ResumeDoc } from "@cv/json";
+import type { Op, ResumeDoc, ResumeNode } from "@cv/json";
+import { JSONDocument, serializeDelta } from "@cv/json";
 
 import { Command } from "../command";
 import { EDITOR_EVENT } from "../event/types";
@@ -57,6 +56,12 @@ export class Editor {
   public readonly interaction: Interaction;
   /** 内置状态 */
   private status: Map<EditorStateKey, boolean> = new Map();
+  /** 文档代数，整文档替换时自增，驱动视图重建 */
+  public docVersion = 0;
+  /** 当前插入工具，由导航栏设置，Interaction 消费后置空 */
+  public tool: string | null = null;
+  /** 工具插入回调，由 UI 层注册 */
+  public onToolInsert: ((type: string, x: number, y: number) => void) | null = null;
   /** 容器 */
   private container: HTMLElement | null = null;
 
@@ -166,7 +171,7 @@ export class Editor {
   public submitDelta(id: string, next: DeltaOp[], undoable = true): void {
     const node = this.document.getNode(id);
     if (!node || node.type !== "text") return;
-    if (JSON.stringify(node.delta) === JSON.stringify(next)) return;
+    if (serializeDelta(node.delta) === serializeDelta(next)) return;
     const ops = this.document.submitDelta(id, next);
     this.model.sync(ops);
     this.renderer.patchPage();
@@ -178,6 +183,29 @@ export class Editor {
       undoable,
     };
     this.event.trigger("CONTENT_CHANGE", change);
+  }
+
+  /**
+   * 整体替换文档
+   * - 用于导入、切换模板
+   * @param doc 新文档
+   */
+  public loadDocument(doc: ResumeDoc): void {
+    this.docVersion += 1;
+    this.document.load(doc);
+    this.model.rebuild();
+    this.selection.clear();
+    this.mode.exitTextEdit();
+    this.history.clear();
+    this.view.layout();
+    this.renderer.patchPage();
+    this.event.trigger("CONTENT_CHANGE", {
+      current: this.document.get(),
+      ops: [],
+      source: APPLY_SOURCE.SYSTEM,
+      ids: [],
+      undoable: false,
+    });
   }
 
   /**

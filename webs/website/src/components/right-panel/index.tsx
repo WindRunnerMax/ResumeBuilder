@@ -1,48 +1,411 @@
-import { useEditor, useSelection } from "@cv/react";
+import { Input, InputNumber } from "@arco-design/web-react";
+import { IconLaunch, IconPlus } from "@arco-design/web-react/icon";
+import type { ImageNode, PaperSize, RectNode } from "@cv/json";
+import { useCommand, useEditor, useEditorEvent, useMode, useSelection } from "@cv/react";
 import type { FC } from "react";
-import React from "react";
+import React, { useEffect, useReducer, useState } from "react";
 
-import { PANEL_WIDTH } from "../../styles/constant";
+/** 纸张预设 */
+const PAPER_PRESETS: { label: string; value: "A4" | "A3" | "Letter" }[] = [
+  { label: "A4", value: "A4" },
+  { label: "A3", value: "A3" },
+  { label: "Letter", value: "Letter" },
+];
+
+/** 预设的毫米尺寸 */
+const SIZE_MM: Record<string, { width: number; height: number }> = {
+  A4: { width: 210, height: 297 },
+  A3: { width: 297, height: 420 },
+  Letter: { width: 215.9, height: 279.4 },
+};
+
+/** 取当前纸张的毫米尺寸 */
+const getPaperMm = (size: PaperSize): { width: number; height: number; preset: string } => {
+  if (typeof size === "string") {
+    const mm = SIZE_MM[size] || SIZE_MM.A4;
+    return { width: mm.width, height: mm.height, preset: size };
+  }
+  return { width: size.width, height: size.height, preset: "custom" };
+};
+
+/** 类型展示名 */
+const TYPE_LABEL: Record<string, string> = {
+  text: "富文本",
+  rect: "矩形",
+  image: "图片",
+  page: "纸张",
+};
 
 /**
- * 右侧面板
- * - 展示当前选中元素的属性
+ * 右侧属性面板
+ * - 浮动卡片，位于画布右上角，可折叠，常驻显示
+ * - 默认展示纸张设置（即导出的裁剪区域），选中元素时切换为元素属性
  */
 export const RightPanel: FC = () => {
   const editor = useEditor();
   const { ids } = useSelection();
+  const { mode, editingId } = useMode();
+  const { execute } = useCommand();
+  const [collapse, setCollapse] = useState(false);
+  // 节点数据是可变对象，内容变化后强制重渲染
+  const [, forceUpdate] = useReducer(v => v + 1, 0);
+  useEditorEvent("CONTENT_CHANGE", forceUpdate);
+
+  // 无选中时默认展示纸张
   const state = ids.length === 1 ? editor.model.get(ids[0]) : null;
+  const node = state ? state.data : editor.model.getPage().data;
+  const editing = mode === "TEXT_EDIT" && editingId === node.id;
+  const isPage = node.id === editor.document.get().root;
+
+  const revise = (key: string, value: number) => {
+    if (Number.isNaN(value)) return;
+    execute({ type: "REVISE", payload: { id: node.id, attrs: { [key]: value } } });
+  };
+
+  /** 修改纸张的毫米尺寸，同步换算成 px 写入 */
+  const revisePaper = (widthMm: number, heightMm: number) => {
+    if (Number.isNaN(widthMm) || Number.isNaN(heightMm) || widthMm <= 0 || heightMm <= 0) return;
+    execute({
+      type: "REVISE",
+      payload: { id: node.id, attrs: { size: { width: widthMm, height: heightMm } } },
+    });
+  };
+
+  const paper = isPage && node.type === "page" ? getPaperMm(node.size) : null;
+  // 四角坐标
+  const left = Math.round(node.x);
+  const top = Math.round(node.y);
+  const right = Math.round(node.x + node.width);
+  const bottom = Math.round(node.y + node.height);
 
   return (
-    <div
-      style={{
-        width: PANEL_WIDTH,
-        flexShrink: 0,
-        background: "#FFFFFF",
-        borderLeft: "1px solid #E4E6EB",
-        padding: 12,
-        overflow: "auto",
-      }}
-    >
-      <div style={{ fontSize: 12, color: "#8A8F99", margin: "4px 4px 12px" }}>属性</div>
-      {!state && <div style={{ fontSize: 12, color: "#B0B4BC", padding: "0 4px" }}>未选中元素</div>}
-      {state && (
-        <div style={{ fontSize: 12, color: "#5F6672", display: "grid", gap: 8 }}>
-          <Row label="类型" value={state.type} />
-          <Row label="X" value={Math.round(state.data.x)} />
-          <Row label="Y" value={Math.round(state.data.y)} />
-          <Row label="宽" value={Math.round(state.data.width)} />
-          <Row label="高" value={Math.round(state.data.height)} />
+    <div className={`cv-right-panel ${collapse ? "is-collapse" : ""}`}>
+      <div className="cv-right-panel__op" onClick={() => setCollapse(!collapse)}>
+        <IconPlus />
+      </div>
+      <div className="cv-right-panel__scroll">
+        <div className="cv-right-panel__matrix">
+          <div className="cv-right-panel__frame" />
+          <span className="cv-matrix__pos cv-matrix__pos--lt">[{left},{top}]</span>
+          <span className="cv-matrix__pos cv-matrix__pos--rt">[{right},{top}]</span>
+          <span className="cv-matrix__pos cv-matrix__pos--lb">[{left},{bottom}]</span>
+          <span className="cv-matrix__pos cv-matrix__pos--rb">[{right},{bottom}]</span>
         </div>
-      )}
+
+        <div className="cv-right-panel__head">
+          <span className="cv-right-panel__type">{TYPE_LABEL[node.type] || node.type}</span>
+          {!isPage && node.type === "text" && (
+            <button
+              className="cv-btn cv-btn--link"
+              onClick={() => editor.mode.enterTextEdit(node.id)}
+            >
+              <IconLaunch />
+            </button>
+          )}
+        </div>
+
+        {paper ? (
+          <PaperPanel
+            paper={paper}
+            width={node.width}
+            height={node.height}
+            onPreset={preset => {
+              const mm = SIZE_MM[preset];
+              revisePaper(mm.width, mm.height);
+            }}
+            onCustom={revisePaper}
+            onWidthPx={value => revise("width", value)}
+            onHeightPx={value => revise("height", value)}
+            onReset={() => editor.view.scrollToPaper()}
+          />
+        ) : (
+          <>
+            <div className="cv-right-panel__grid">
+              <Row label="X">
+                <InputNumber size="mini" value={left} onChange={v => revise("x", Number(v))} />
+              </Row>
+              <Row label="Y">
+                <InputNumber size="mini" value={top} onChange={v => revise("y", Number(v))} />
+              </Row>
+              <Row label="宽">
+                <InputNumber
+                  size="mini"
+                  value={Math.round(node.width)}
+                  onChange={v => revise("width", Number(v))}
+                />
+              </Row>
+              <Row label="高">
+                <InputNumber
+                  size="mini"
+                  value={Math.round(node.height)}
+                  onChange={v => revise("height", Number(v))}
+                />
+              </Row>
+            </div>
+
+            {node.type === "image" && (
+              <ImagePanel
+                node={node}
+                onRevise={attrs => execute({ type: "REVISE", payload: { id: node.id, attrs } })}
+              />
+            )}
+            {node.type === "rect" && (
+              <RectPanel
+                node={node}
+                onRevise={attrs => execute({ type: "REVISE", payload: { id: node.id, attrs } })}
+              />
+            )}
+          </>
+        )}
+
+        {!isPage && (
+          <div className="cv-right-panel__actions">
+            <button
+              className="cv-btn"
+              onClick={() => {
+                execute({ type: "DELETE", payload: { ids } });
+                editor.selection.clear();
+              }}
+            >
+              删除
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
+/** 图片属性：上传与渲染模式 */
+const ImagePanel: FC<{
+  node: ImageNode;
+  onRevise: (attrs: Record<string, unknown>) => void;
+}> = props => {
+  const onUpload = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.onchange = () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => props.onRevise({ src: String(reader.result) });
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  };
+
+  return (
+    <div className="cv-right-panel__paper">
+      <div className="cv-right-panel__section">图片</div>
+      <div className="cv-right-panel__actions">
+        <button className="cv-btn" onClick={onUpload}>
+          上传图片
+        </button>
+      </div>
+      <div className="cv-right-panel__section">渲染模式</div>
+      <div className="cv-paper-presets">
+        {(["cover", "contain", "fill"] as const).map(mode => (
+          <button
+            key={mode}
+            className={`cv-paper-preset ${props.node.mode === mode ? "is-active" : ""}`}
+            onClick={() => props.onRevise({ mode })}
+          >
+            {mode}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/** 矩形属性：填充、描边、圆角 */
+const RectPanel: FC<{
+  node: RectNode;
+  onRevise: (attrs: Record<string, unknown>) => void;
+}> = props => {
+  const border = props.node.border;
+  /** 更新描边字段 */
+  const reviseBorder = (patch: Partial<NonNullable<RectNode["border"]>>) => {
+    props.onRevise({
+      border: {
+        width: 1,
+        color: "#E4E6EB",
+        l: false,
+        r: false,
+        t: false,
+        b: false,
+        ...(props.node.border || {}),
+        ...patch,
+      },
+    });
+  };
+
+  return (
+    <div className="cv-right-panel__paper">
+      <div className="cv-right-panel__section">填充色</div>
+      <div className="cv-right-panel__row">
+        <input
+          type="color"
+          className="cv-color-input"
+          value={props.node.fill || "#FFFFFF"}
+          onChange={e => props.onRevise({ fill: e.target.value })}
+        />
+        <button
+          className="cv-btn"
+          onClick={() => props.onRevise({ fill: null })}
+          title="清除填充"
+        >
+          无
+        </button>
+      </div>
+
+      <div className="cv-right-panel__section">描边</div>
+      <div className="cv-paper-presets">
+        {([["l", "左"], ["r", "右"], ["t", "上"], ["b", "下"]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            className={`cv-paper-preset ${border?.[key] ? "is-active" : ""}`}
+            onClick={() => reviseBorder({ [key]: !border?.[key] })}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="cv-right-panel__row" style={{ marginTop: 8 }}>
+        <span className="cv-right-panel__label">色</span>
+        <input
+          type="color"
+          className="cv-color-input"
+          value={border?.color || "#E4E6EB"}
+          onChange={e => reviseBorder({ color: e.target.value })}
+        />
+        <span className="cv-right-panel__label">宽</span>
+        <InputNumber
+          size="mini"
+          min={1}
+          max={10}
+          value={border?.width ?? 1}
+          onChange={v => reviseBorder({ width: Number(v) || 1 })}
+        />
+      </div>
+
+      <div className="cv-right-panel__section">圆角</div>
+      <InputNumber
+        size="mini"
+        min={0}
+        value={props.node.radius ?? 0}
+        onChange={v => props.onRevise({ radius: Number(v) || 0 })}
+      />
+    </div>
+  );
+};
+
+/** 纸张尺寸设置 */
+const PaperPanel: FC<{
+  paper: { width: number; height: number; preset: string };
+  width: number;
+  height: number;
+  onPreset: (preset: string) => void;
+  onCustom: (width: number, height: number) => void;
+  onWidthPx: (value: number) => void;
+  onHeightPx: (value: number) => void;
+  onReset: () => void;
+}> = props => {
+  return (
+    <div className="cv-right-panel__paper">
+      <div className="cv-right-panel__section">纸张预设</div>
+      <div className="cv-paper-presets">
+        {PAPER_PRESETS.map(item => (
+          <button
+            key={item.label}
+            className={`cv-paper-preset ${props.paper.preset === item.value ? "is-active" : ""}`}
+            onClick={() => props.onPreset(item.value as string)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="cv-right-panel__section">自定义尺寸（mm）</div>
+      <div className="cv-right-panel__grid">
+        <Row label="宽">
+          <CommitInput
+            value={props.paper.width}
+            min={10}
+            onCommit={v => props.onCustom(v, props.paper.height)}
+          />
+        </Row>
+        <Row label="高">
+          <CommitInput
+            value={props.paper.height}
+            min={10}
+            onCommit={v => props.onCustom(props.paper.width, v)}
+          />
+        </Row>
+      </div>
+
+      <div className="cv-right-panel__section">像素尺寸（px）</div>
+      <div className="cv-right-panel__grid">
+        <Row label="宽">
+          <InputNumber size="mini" value={Math.round(props.width)} onChange={v => props.onWidthPx(Number(v))} />
+        </Row>
+        <Row label="高">
+          <InputNumber
+            size="mini"
+            value={Math.round(props.height)}
+            onChange={v => props.onHeightPx(Number(v))}
+          />
+        </Row>
+      </div>
+      <div className="cv-right-panel__hint">
+        白底区域即为最终导出的裁剪范围，尺寸按 96dpi 换算
+      </div>
+      <div className="cv-right-panel__actions">
+        <button className="cv-btn" onClick={props.onReset}>
+          定位到纸张
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * 失焦或回车才提交的数字输入
+ * - 避免边输入边改纸张尺寸，导致输入框被重置
+ */
+const CommitInput: FC<{ value: number; min?: number; onCommit: (value: number) => void }> = props => {
+  const [draft, setDraft] = useState(String(props.value));
+
+  // 外部值变化时同步草稿
+  useEffect(() => {
+    setDraft(String(props.value));
+  }, [props.value]);
+
+  const commit = () => {
+    const value = Number(draft);
+    if (Number.isNaN(value) || value < (props.min ?? 0)) {
+      setDraft(String(props.value));
+      return;
+    }
+    value === props.value || props.onCommit(value);
+  };
+
+  return (
+    <Input
+      size="mini"
+      value={draft}
+      onChange={setDraft}
+      onBlur={commit}
+      onPressEnter={commit}
+    />
+  );
+};
+
 /** 属性行 */
-const Row: FC<{ label: string; value: string | number }> = props => (
-  <div style={{ display: "flex", justifyContent: "space-between" }}>
-    <span style={{ color: "#8A8F99" }}>{props.label}</span>
-    <span>{props.value}</span>
+const Row: FC<{ label: string; children?: React.ReactNode }> = props => (
+  <div className="cv-right-panel__row">
+    <span className="cv-right-panel__label">{props.label}</span>
+    {props.children}
   </div>
 );

@@ -4,7 +4,7 @@ export { createExampleDoc } from "./example";
 export { A4_SIZE, createDefaultDoc, createPage, createRect, createText, DEFAULT_PADDING, DOC_VERSION } from "./preset";
 export { isValidDoc, validateDoc } from "./schema";
 export type { DeltaSubOp } from "./subtype";
-export { createDeltaOp, diffDelta, json } from "./subtype";
+export { createDeltaOp, diffDelta, json, serializeDelta } from "./subtype";
 export type {
   BaseNode,
   ImageMode,

@@ -1,64 +1,60 @@
 import type { ResumeDoc } from "@cv/json";
 import { createDefaultDoc } from "@cv/json";
 import type { FC } from "react";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 
 import { ExportPanel } from "../export-panel";
 import { PreviewView } from "../preview-view";
+import { backToEditor } from "../../utils/constant";
+import { toPaperMm } from "../../utils/paper";
 import { loadDocument } from "../../utils/storage";
-import { HEADER_HEIGHT } from "../../styles/constant";
+
+/** 保留一位小数 */
+const round = (value: number) => Math.round(value * 10) / 10;
 
 /**
  * 导出 / 预览页面
  * - 左侧为简历预览，右侧为导出面板
- * - 通过 hash 路由进入：#/preview
+ * - 由编辑页 window.open 打开，独立标签页
  */
 export const PreviewPage: FC = () => {
   const doc = useMemo<ResumeDoc>(() => loadDocument() || createDefaultDoc(), []);
+  const page = doc.nodes[doc.root];
+  const paper = page && page.type === "page" ? page.size : "A4";
+  const mm = toPaperMm(paper);
+
+  // 导出裁剪范围跟随纸张尺寸，随页面一起写入 @page
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.setAttribute("data-cv-page", "true");
+    style.textContent = `@page { size: ${mm.width}mm ${mm.height}mm; margin: 0; }`;
+    document.head.appendChild(style);
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, [mm.width, mm.height]);
 
   return (
-    <div
-      className="cv-export"
-      style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}
-    >
-      <div
-        className="cv-header"
-        style={{
-          height: HEADER_HEIGHT,
-          flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 16px",
-          background: "#FFFFFF",
-          borderBottom: "1px solid #E4E6EB",
-        }}
-      >
-        <button style={styles.back} onClick={() => (location.hash = "#/")}>
-          ← 返回编辑
-        </button>
-        <span style={{ fontSize: 13, color: "#8A8F99" }}>预览与导出</span>
+    <div className="cv-export">
+      <div className="cv-header-root">
+        <div className="cv-header-left">
+          <span className="cv-header-title">预览与导出</span>
+          <span className="cv-header-meta">
+            {typeof paper === "string" ? paper : "自定义"} · {round(mm.width)} × {round(mm.height)} mm
+          </span>
+        </div>
+        <div className="cv-header-right">
+          <button className="cv-header-btn" onClick={backToEditor}>
+            关闭
+          </button>
+        </div>
       </div>
-      <div className="cv-export-body" style={{ flex: 1, display: "flex", minHeight: 0 }}>
-        <div
-          className="cv-export-scroll"
-          style={{ flex: 1, overflow: "auto", padding: 32, background: "#F5F6F7" }}
-        >
+      <div className="cv-export-body">
+        <div className="cv-export-scroll">
           <PreviewView doc={doc} />
         </div>
         <ExportPanel />
       </div>
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  back: {
-    padding: "4px 10px",
-    fontSize: 13,
-    border: "1px solid #E4E6EB",
-    borderRadius: 6,
-    background: "#FFFFFF",
-    cursor: "pointer",
-  },
 };

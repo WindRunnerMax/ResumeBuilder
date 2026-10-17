@@ -33,7 +33,7 @@ const config: Configuration = {
   },
   builtins: {
     define: {
-      __DEV__: JSON.stringify(IS_DEV),
+      "__DEV__": JSON.stringify(IS_DEV),
       "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
     },
   },
@@ -57,8 +57,12 @@ const config: Configuration = {
         use: ["style-loader", "css-loader", "sass-loader"],
         type: "javascript/auto",
       },
-      // BlockKit 依赖 arco 的 less 样式
-      { test: /\.less$/, use: ["style-loader", "css-loader", "less-loader"] },
+      // Less：用于 Arco 的按需样式与 BlockKit 自带样式
+      {
+        test: /\.less$/,
+        use: ["style-loader", "css-loader", "less-loader"],
+        type: "javascript/auto",
+      },
       { test: /\.svg$/, type: "asset" },
     ],
   },

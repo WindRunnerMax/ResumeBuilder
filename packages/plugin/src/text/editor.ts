@@ -5,12 +5,14 @@ import {
   AlignPlugin,
   BackgroundPlugin,
   BoldPlugin,
+  BulletListPlugin,
   DividerPlugin,
   FontColorPlugin,
   FontSizePlugin,
   IndentPlugin,
   ItalicPlugin,
   LineHeightPlugin,
+  OrderListPlugin,
   Shortcut,
   StrikePlugin,
   UnderlinePlugin,
@@ -45,6 +47,8 @@ export const createTextEditor = (id: string, ops: DeltaOp[]): Editor => {
     new BackgroundPlugin(editor),
     new AlignPlugin(editor),
     new IndentPlugin(editor),
+    new OrderListPlugin(editor),
+    new BulletListPlugin(editor),
     new Shortcut(editor, PRESET_SHORTCUT),
   ]);
   EDITORS.set(id, editor);

@@ -1,25 +1,25 @@
 /**
- * 把 CanvasEditor 的示例简历转换成 ResumeDoc
+ * 把 CanvasEditor 的模板转换成 ResumeDoc
  * - 输入：{ x, y, width, height, deltaSetLike }
  * - 输出：{ version, root, nodes }
  * - 文本内容从 sketch 的 RichTextLines 转为 BlockKit Delta
+ * - 批量转换所有模板，并生成左侧面板用的缩略图
  */
 const fs = require("fs");
 const path = require("path");
 
-const SRC = path.resolve(
-  process.argv[2] ||
-    "/Users/czy/Project/Packages/CanvasEditor/packages/react/public/template/Czy/index.json"
+/** CanvasEditor 的模板目录 */
+const SOURCE_DIR = "/Users/czy/Project/Packages/CanvasEditor/packages/react/public/template";
+/** 模板 JSON 输出目录 */
+const OUTPUT_DIR = path.resolve(
+  process.argv[2] || "/Users/czy/Project/Packages/ResumeBuilder/webs/website/src/templates"
 );
-const OUT = path.resolve(
-  process.argv[3] || "/Users/czy/Project/Packages/ResumeBuilder/packages/json/src/example.json"
+/** 缩略图输出目录 */
+const THUMB_DIR = path.resolve(
+  process.argv[3] || "/Users/czy/Project/Packages/ResumeBuilder/webs/website/public/template"
 );
-
-const data = JSON.parse(fs.readFileSync(SRC, "utf8"));
-const deltas = data.deltaSetLike;
-
-const PAGE_ID = "page";
-const nodes = {};
+/** 模板清单，顺序与左侧面板一致 */
+const TEMPLATES = ["Czy", "Hty", "Lbz", "Lmz", "Wxy", "Lch"];
 
 /** sketch 字符样式 key → BlockKit 属性 */
 const toAttributes = config => {
@@ -58,114 +58,143 @@ const linesToDelta = lines => {
         ...(Object.keys(attributes).length ? { attributes } : {}),
       });
     }
-    // 行属性挂在换行符上
+    // 行属性挂在换行符的 attributes 上（BlockKit 标准）
     const lineAttrs = {};
     if (line.config && line.config.LINE_HEIGHT) lineAttrs["line-height"] = line.config.LINE_HEIGHT;
     if (line.config && line.config.ORDERED_LIST_LEVEL) {
-      lineAttrs["list-type"] = "ordered";
+      lineAttrs.list = "order";
       lineAttrs["indent-level"] = String(Number(line.config.ORDERED_LIST_LEVEL) - 1);
       line.config.ORDERED_LIST_START && (lineAttrs["list-start"] = line.config.ORDERED_LIST_START);
     }
     if (line.config && line.config.UNORDERED_LIST_LEVEL) {
-      lineAttrs["list-type"] = "bullet";
+      lineAttrs.list = "bullet";
       lineAttrs["indent-level"] = String(Number(line.config.UNORDERED_LIST_LEVEL) - 1);
     }
-    if (line.config && line.config.DIVIDING_LINE) lineAttrs["divider"] = "true";
-    // 合并相邻同属性片段，减小体积
-    if (ops.length) {
-      const last = ops[ops.length - 1];
-      if (typeof last.insert === "string" && !last.eol) {
-        last.eol = lineAttrs;
-        continue;
-      }
+    // 分割线是空格字符上的 leaf 属性（DividerPlugin.renderLeaf）
+    if (line.config && line.config.DIVIDING_LINE) {
+      ops.push({ insert: " ", attributes: { divider: "true" } });
     }
-    ops.push({ insert: "\n", eol: lineAttrs });
-  }
-  if (ops.length) {
-    const last = ops[ops.length - 1];
-    if (!last.eol && typeof last.insert === "string") last.eol = {};
+    ops.push({ insert: "\n", ...(Object.keys(lineAttrs).length ? { attributes: lineAttrs } : {}) });
   }
   return ops;
 };
 
-// 页面
-nodes[PAGE_ID] = {
-  id: PAGE_ID,
-  type: "page",
-  parent: null,
-  children: [],
-  x: 0,
-  y: 0,
-  width: Math.round(data.width * 100) / 100,
-  height: Math.round(data.height * 100) / 100,
-  size: "A4",
-  padding: [0, 0, 0, 0],
-  background: "#FFFFFF",
+/**
+ * 转换单个模板
+ * @param data CanvasEditor 的模板数据
+ */
+const convert = data => {
+  const deltas = data.deltaSetLike;
+  const PAGE_ID = "page";
+  const nodes = {};
+
+  nodes[PAGE_ID] = {
+    id: PAGE_ID,
+    type: "page",
+    parent: null,
+    children: [],
+    x: 0,
+    y: 0,
+    width: Math.round(data.width * 100) / 100,
+    height: Math.round(data.height * 100) / 100,
+    size: "A4",
+    padding: [0, 0, 0, 0],
+    background: "#FFFFFF",
+  };
+
+  // 模板中的 x/y 即为纸张左上角
+  const originX = data.x || 0;
+  const originY = data.y || 0;
+
+  for (const [id, delta] of Object.entries(deltas)) {
+    if (delta.key === "entry") continue;
+    const base = {
+      id,
+      parent: PAGE_ID,
+      children: [],
+      x: Math.round((delta.x - originX) * 100) / 100,
+      y: Math.round((delta.y - originY) * 100) / 100,
+      width: Math.round(delta.width * 100) / 100,
+      height: Math.round(delta.height * 100) / 100,
+    };
+    if (delta.key === "text") {
+      const lines = JSON.parse(delta.attrs.DATA || "[]");
+      nodes[id] = {
+        ...base,
+        type: "text",
+        delta: linesToDelta(lines),
+        style: { family: "PingFang SC", size: 14, lineHeight: 1.5, color: "#1F2328" },
+        autoHeight: false,
+      };
+    } else if (delta.key === "image") {
+      nodes[id] = {
+        ...base,
+        type: "image",
+        src: delta.attrs.src,
+        mode: String(delta.attrs.mode || "COVER").toLowerCase(),
+        border: delta.attrs["border-width"]
+          ? {
+              width: Number(delta.attrs["border-width"]),
+              color: delta.attrs["border-color"] || "#EEEEEE",
+            }
+          : null,
+      };
+    } else if (delta.key === "rect") {
+      nodes[id] = {
+        ...base,
+        type: "rect",
+        fill: delta.attrs["fill-color"] || null,
+        border: delta.attrs["border-color"]
+          ? {
+              width: Number(delta.attrs["border-width"] || 1),
+              color: delta.attrs["border-color"],
+              l: delta.attrs.L === "true",
+              r: delta.attrs.R === "true",
+              t: delta.attrs.T === "true",
+              b: delta.attrs.B === "true",
+            }
+          : null,
+        radius: 0,
+      };
+    } else {
+      continue;
+    }
+    nodes[PAGE_ID].children.push(id);
+  }
+
+  return { version: 1, root: PAGE_ID, nodes };
 };
 
-/** 把坐标平移到页面左上角，模板中的 x/y 即为纸张左上角 */
-const originX = data.x || 0;
-const originY = data.y || 0;
+fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+fs.mkdirSync(THUMB_DIR, { recursive: true });
 
-for (const [id, delta] of Object.entries(deltas)) {
-  if (delta.key === "entry") continue;
-  const base = {
-    id,
-    parent: PAGE_ID,
-    children: [],
-    x: Math.round((delta.x - originX) * 100) / 100,
-    y: Math.round((delta.y - originY) * 100) / 100,
-    width: Math.round(delta.width * 100) / 100,
-    height: Math.round(delta.height * 100) / 100,
-  };
-  if (delta.key === "text") {
-    const lines = JSON.parse(delta.attrs.DATA || "[]");
-    nodes[id] = {
-      ...base,
-      type: "text",
-      delta: linesToDelta(lines),
-      style: { family: "PingFang SC", size: 14, lineHeight: 1.5, color: "#1F2328" },
-      autoHeight: false,
-    };
-  } else if (delta.key === "image") {
-    nodes[id] = {
-      ...base,
-      type: "image",
-      src: delta.attrs.src,
-      mode: String(delta.attrs.mode || "COVER").toLowerCase(),
-      border: delta.attrs["border-width"]
-        ? { width: Number(delta.attrs["border-width"]), color: delta.attrs["border-color"] || "#EEEEEE" }
-        : null,
-    };
-  } else if (delta.key === "rect") {
-    nodes[id] = {
-      ...base,
-      type: "rect",
-      fill: delta.attrs["fill-color"] || null,
-      border: delta.attrs["border-color"]
-        ? {
-            width: Number(delta.attrs["border-width"] || 1),
-            color: delta.attrs["border-color"],
-            l: delta.attrs.L === "true",
-            r: delta.attrs.R === "true",
-            t: delta.attrs.T === "true",
-            b: delta.attrs.B === "true",
-          }
-        : null,
-      radius: 0,
-    };
-  } else {
+let first = null;
+for (const name of TEMPLATES) {
+  const src = path.join(SOURCE_DIR, name, "index.json");
+  if (!fs.existsSync(src)) {
+    console.warn(`skip ${name}: source not found`);
     continue;
   }
-  nodes[PAGE_ID].children.push(id);
+  const doc = convert(JSON.parse(fs.readFileSync(src, "utf8")));
+  const out = path.join(OUTPUT_DIR, `${name}.json`);
+  fs.writeFileSync(out, JSON.stringify(doc));
+  first = first || out;
+
+  // 缩略图直接复用 CanvasEditor 的原图
+  const thumbSrc = path.join(SOURCE_DIR, name, "index.jpeg");
+  const thumbOut = path.join(THUMB_DIR, `${name}.jpeg`);
+  if (fs.existsSync(thumbSrc)) {
+    fs.copyFileSync(thumbSrc, thumbOut);
+  }
+  console.log(
+    `${name}: nodes=${Object.keys(doc.nodes).length} size=${(fs.statSync(out).size / 1024).toFixed(
+      1
+    )}KB`
+  );
 }
 
-const doc = { version: 1, root: PAGE_ID, nodes };
-fs.writeFileSync(OUT, JSON.stringify(doc, null, 2));
-console.log(`written ${OUT}`);
-console.log(
-  "nodes:",
-  Object.keys(nodes).length,
-  "size:",
-  (fs.statSync(OUT).size / 1024).toFixed(1) + "KB"
-);
+// 首个模板同时作为默认示例
+if (first) {
+  fs.copyFileSync(first, "/Users/czy/Project/Packages/ResumeBuilder/packages/json/src/example.json");
+  console.log("example.json <-", path.basename(first));
+}

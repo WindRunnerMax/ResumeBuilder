@@ -21,6 +21,11 @@ export class Renderer {
 
   /** 更新单个元素的位置、尺寸与插件注入的样式 */
   public patch(state: ElementState): void {
+    // 纸张的位置与尺寸由 View 依据画板计算
+    if (state.type === "page") {
+      this.patchPage();
+      return;
+    }
     const el = state.el;
     if (!el) return;
     this.editor.view.applyRect(el, state.data);
@@ -32,7 +37,9 @@ export class Renderer {
     const page = this.editor.model.getPage();
     const el = this.editor.view.getPage();
     if (!el) return;
+    this.editor.view.layout();
     this.applyPluginStyle(el, page);
+    this.editor.overlay.patch();
   }
 
   /** 把插件注入的样式写入 DOM */

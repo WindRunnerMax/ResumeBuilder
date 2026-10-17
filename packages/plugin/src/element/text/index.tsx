@@ -43,9 +43,9 @@ const TextBlockView: FC<ElementViewProps> = props => {
     };
   }, [canvas, text.id]);
 
-  // 文本编辑结果写回数据
+  // 文本编辑结果写回数据，内容去重由 core 的 submitDelta 统一处理
   useEffect(() => {
-    const listener = (e: ContentChangeEvent) => {
+    const listener = () => {
       const ops = blockEditor.state.block.toDelta().ops as DeltaOp[];
       canvas.submitDelta(text.id, ops, false);
     };
@@ -53,12 +53,8 @@ const TextBlockView: FC<ElementViewProps> = props => {
     return () => blockEditor.event.off(EDITOR_EVENT.CONTENT_CHANGE, listener);
   }, [blockEditor, canvas, text.id]);
 
-  // 外部数据变更（撤销 / 导入）时回写编辑器
-  useLayoutEffect(() => {
-    const current = blockEditor.state.block.toDelta().ops;
-    if (JSON.stringify(current) === JSON.stringify(text.delta)) return;
-    blockEditor.state.setContent(new Delta(text.delta));
-  }, [blockEditor, text.delta]);
+  // 编辑器完全非受控：挂载时用节点数据初始化，之后单向写回数据
+  // 外部整文档替换通过 CanvasView 的文档代数 key 触发 remount 重建
 
   // 进入编辑态时聚焦到末尾
   useEffect(() => {
@@ -77,6 +73,7 @@ const TextBlockView: FC<ElementViewProps> = props => {
     fontSize: text.style.size,
     lineHeight: text.style.lineHeight,
     color: text.style.color,
+    // 裁掉超出节点高度的内容
     overflow: "hidden",
     cursor: editing ? "text" : undefined,
   };

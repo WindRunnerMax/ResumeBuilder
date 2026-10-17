@@ -1,48 +1,140 @@
+import { Button, Dropdown, Menu, Message } from "@arco-design/web-react";
+import { IconDown, IconGithub, IconRedo, IconUndo } from "@arco-design/web-react/icon";
+import { useCommand, useEditor, useHistory } from "@cv/react";
 import type { FC } from "react";
-import React from "react";
+import React, { useReducer } from "react";
 
-import { HistoryBar } from "../history-bar";
-import { Toolbar } from "../toolbar";
-import { HEADER_HEIGHT } from "../../styles/constant";
+import { NavTools } from "./components/nav";
+import { convertPxToMm } from "../../utils/format";
+import { openExportPage } from "../../utils/constant";
 
 /**
  * 顶栏
- * - 左侧为产品名，中间为元素工具栏，右侧为历史操作
+ * - 左：工具栏（选择、分割线、图片、文本）
+ * - 右：撤销/重做、操作、导出、仓库链接
  */
 export const Header: FC = () => {
+  const editor = useEditor();
+  const { undo, redo } = useCommand();
+  const { canUndo, canRedo } = useHistory();
+  // 纸张尺寸变化后刷新顶栏信息
+  const [, forceUpdate] = useReducer(v => v + 1, 0);
+  React.useEffect(() => {
+    const update = () => forceUpdate();
+    editor.event.on("CONTENT_CHANGE", update);
+    return () => editor.event.off("CONTENT_CHANGE", update);
+  }, [editor]);
+
+  const size = editor.view.getPageSize();
+  const pageNode = editor.model.getPage().data;
+  const paper = pageNode.type === "page" ? pageNode.size : "A4";
+  const paperLabel = typeof paper === "string" ? paper : "自定义";
+
+  /** 导出 JSON 文件 */
+  const onExportJson = () => {
+    const blob = new Blob([JSON.stringify(editor.document.toJSON(), null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "resume.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /** 导入 JSON 文件 */
+  const onImportJson = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        editor.loadDocument(JSON.parse(text));
+        Message.success("导入成功");
+      } catch (error) {
+        Message.error("导入失败，请检查文件格式");
+        console.error("[cv] import failed", error);
+      }
+    };
+    input.click();
+  };
+
+  /** 操作菜单 */
+  const opMenu = (
+    <Menu className="cv-menu">
+      <Menu.Item key="import" onClick={onImportJson}>
+        导入 JSON
+      </Menu.Item>
+      <Menu.Item key="clear" onClick={() => editor.history.clear()}>
+        清空历史
+      </Menu.Item>
+    </Menu>
+  );
+
+  /** 导出菜单 */
+  const exportMenu = (
+    <Menu className="cv-menu">
+      <Menu.Item key="pdf" onClick={openExportPage}>
+        PDF（预览后导出）
+      </Menu.Item>
+      <Menu.Item key="json" onClick={onExportJson}>
+        JSON
+      </Menu.Item>
+    </Menu>
+  );
+
   return (
-    <div
-      style={{
-        height: HEADER_HEIGHT,
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        background: "#FFFFFF",
-        borderBottom: "1px solid #E4E6EB",
-        padding: "0 16px",
-        gap: 16,
-      }}
-    >
-      <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: 0.2, flexShrink: 0 }}>
-        Resume Builder
+    <div className="cv-header-root">
+      <div className="cv-header-left">
+        <NavTools />
+        <span className="cv-header-meta">
+          {paperLabel} · {convertPxToMm(size.width).toFixed(0)} × {convertPxToMm(size.height).toFixed(0)} mm
+        </span>
       </div>
-      <Toolbar />
-      <HistoryBar />
-      <button
-        style={{
-          padding: "4px 14px",
-          fontSize: 12,
-          border: "none",
-          borderRadius: 4,
-          background: "#1664FF",
-          color: "#FFFFFF",
-          cursor: "pointer",
-          flexShrink: 0,
-        }}
-        onClick={() => (location.hash = "#/preview")}
-      >
-        预览导出
-      </button>
+      <div className="cv-header-right">
+        <div className="cv-history">
+          <Button
+            type="text"
+            size="small"
+            iconOnly
+            icon={<IconUndo />}
+            disabled={!canUndo}
+            onClick={undo}
+          />
+          <Button
+            type="text"
+            size="small"
+            iconOnly
+            icon={<IconRedo />}
+            disabled={!canRedo}
+            onClick={redo}
+          />
+        </div>
+        <Dropdown droplist={opMenu} trigger="click" position="br">
+          <Button size="mini" type="text">
+            操作
+            <IconDown />
+          </Button>
+        </Dropdown>
+        <Dropdown droplist={exportMenu} trigger="click" position="br">
+          <Button size="mini" type="text">
+            导出
+            <IconDown />
+          </Button>
+        </Dropdown>
+        <a
+          className="cv-github"
+          target="_blank"
+          rel="noreferrer"
+          href="https://github.com/WindrunnerMax/CanvasEditor"
+        >
+          <IconGithub />
+        </a>
+      </div>
     </div>
   );
 };

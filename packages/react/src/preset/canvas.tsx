@@ -5,20 +5,20 @@ import { useEditor } from "../hooks/use-editor";
 import { useEditorEvent } from "../hooks/use-editor-event";
 import { ElementView } from "./element";
 
-/** 页面四周留白，与 core 中 View 的常量保持一致 */
-export const STAGE_GAP = 120;
+/** 画板尺寸，与 core 中 View 的常量保持一致 */
+export const BOARD_SIZE = 5000;
 
 /**
  * 画布视图
- * - 渲染 stage / page / 元素 / overlay 四层结构
- * - 尺寸与居中由 core 的 View 计算，这里只提供容器
+ * - 渲染 board / page / 元素 / overlay 四层结构
+ * - board 固定 5000×5000，page 由 core 的 View 摆放在中间
  */
 export const CanvasView: FC<{ className?: string }> = props => {
   const editor = useEditor();
   const stageRef = useRef<HTMLDivElement>(null);
   const pageRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  const [version, setVersion] = useState(0);
+  const [dirty, setDirty] = useState(0);
 
   useLayoutEffect(() => {
     editor.view.setStage(stageRef.current);
@@ -33,32 +33,34 @@ export const CanvasView: FC<{ className?: string }> = props => {
   }, [editor]);
 
   // 内容变更后刷新元素列表
-  useEditorEvent("CONTENT_CHANGE", () => setVersion(v => v + 1));
-  // 视口尺寸变化后重新布局纸张居中
-  useEditorEvent("RESIZE", () => editor.view.layout());
+  useEditorEvent("CONTENT_CHANGE", () => setDirty(v => v + 1));
 
   const pageNode = editor.model.getPage().data;
-
-  const children = useMemo(() => {
-    const rootId = editor.document.get().root;
-    return editor.model
-      .getFlat()
-      .filter(state => state.id !== rootId)
-      .map(state => <ElementView key={state.id} node={state.data} />);
+  // 数据变了才重新计算，滚动与选中不会触发渲染
+  // key 拼上文档代数：整文档替换（载入模板 / 导入）时强制重建，文本编辑器随之重建
+  const docVersion = editor.docVersion;
+  const elements = useMemo(
+    () =>
+      editor.model
+        .getFlat()
+        .filter(state => state.id !== pageNode.id)
+        .map(state => <ElementView key={`#${docVersion}#${state.id}`} node={state.data} />),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor, version]);
+    [editor, dirty, docVersion]
+  );
 
   return (
-    <div ref={stageRef} className={props.className} style={{ position: "relative" }}>
+    <div ref={stageRef} className={props.className} data-cv-board="true">
       <div
         ref={pageRef}
         data-page-id={pageNode.id}
         data-page-root="true"
         style={{ position: "absolute", overflow: "hidden" }}
       >
-        {children}
-        <div ref={overlayRef} />
+        {elements}
       </div>
+      {/* overlay 挂在画板层，避免框选框被纸张 overflow 裁剪 */}
+      <div ref={overlayRef} />
     </div>
   );
 };

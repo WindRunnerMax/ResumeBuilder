@@ -1,6 +1,7 @@
-import type { Op } from "@cv/json";
+import type { Op, PaperSize } from "@cv/json";
 
 import type { Editor } from "../editor";
+import { resolvePaperSize } from "../model/utils";
 import { APPLY_SOURCE } from "../utils/constant";
 
 /** 命令名称 */
@@ -78,8 +79,10 @@ export class Command {
       case COMMAND.MOVE: {
         const { ids, dx, dy } = command.payload;
         const ops: Op[] = [];
+        const rootId = this.editor.document.get().root;
         ids.forEach(id => {
-          if (!this.editor.model.get(id)) return;
+          // 纸张固定居中在画板中，不参与移动
+          if (id === rootId || !this.editor.model.get(id)) return;
           dx && ops.push({ p: ["nodes", id, "x"], na: dx });
           dy && ops.push({ p: ["nodes", id, "y"], na: dy });
         });
@@ -104,7 +107,13 @@ export class Command {
         return ops;
       }
       case COMMAND.REVISE: {
-        return this.replace(command.payload.id, command.payload.attrs);
+        const { id, attrs } = command.payload;
+        // 修改纸张尺寸时，同步写入英寸换算后的画板尺寸
+        if (id === this.editor.document.get().root && "size" in attrs) {
+          const size = resolvePaperSize(attrs.size as PaperSize);
+          return this.replace(id, { ...attrs, width: size.width, height: size.height });
+        }
+        return this.replace(id, attrs);
       }
       default:
         return [];

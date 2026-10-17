@@ -15,8 +15,7 @@ registerBaseViews();
 
 /**
  * 应用根组件
- * - 顶栏 + 左面板 + 画布 + 右面板
- * - 高度固定为视口高度，外层不产生滚动条
+ * - 顶栏 + 左侧面板 + 画布（右侧属性面板浮动在画布上）
  */
 export const App: FC = () => {
   const editor = useMemo(() => {
@@ -34,22 +33,16 @@ export const App: FC = () => {
 
   return (
     <EditorProvider editor={editor}>
-      <div
-        style={{
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          background: "#F5F6F7",
-        }}
-      >
+      <div className="cv-editor">
         <Header />
-        <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+        <div className="cv-editor__body">
           <LeftPanel />
-          <EditorView editor={editor} style={{ flex: 1, minWidth: 0, background: "#F5F6F7" }}>
-            <CanvasView />
-          </EditorView>
-          <RightPanel />
+          <div className="cv-canvas">
+            <EditorView editor={editor} style={{ width: "100%", height: "100%" }}>
+              <CanvasView />
+            </EditorView>
+            <RightPanel />
+          </div>
         </div>
       </div>
     </EditorProvider>

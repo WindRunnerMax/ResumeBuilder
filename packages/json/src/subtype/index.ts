@@ -32,4 +32,34 @@ export const diffDelta = (prev: DeltaOp[], next: DeltaOp[]): DeltaOp[] => {
   return new Delta(prev).diff(new Delta(next)).ops;
 };
 
+/**
+ * 规格化 Delta 后序列化，用于可靠的内容比较
+ * - 合并相邻同属性片段（compose 输出与 toDelta 输出的分片可能不同）
+ * - 剔除空 attributes，attributes key 排序
+ * - 两边都用它比较，避免规格化差异导致误判与光标重置
+ * @param ops Delta 操作列表
+ */
+export const serializeDelta = (ops: DeltaOp[]): string => {
+  const sorted = (attrs?: Record<string, unknown>) => {
+    if (!attrs || !Object.keys(attrs).length) return null;
+    return JSON.stringify(attrs, Object.keys(attrs).sort());
+  };
+  const merged: Array<{ insert: unknown; attributes?: Record<string, unknown> }> = [];
+  for (const op of ops) {
+    const attrs = sorted(op.attributes);
+    const last = merged[merged.length - 1];
+    if (
+      last &&
+      typeof last.insert === "string" &&
+      typeof op.insert === "string" &&
+      sorted(last.attributes) === attrs
+    ) {
+      last.insert += op.insert;
+      continue;
+    }
+    merged.push({ insert: op.insert, ...(attrs ? { attributes: JSON.parse(attrs) } : {}) });
+  }
+  return JSON.stringify(merged);
+};
+
 export { json };

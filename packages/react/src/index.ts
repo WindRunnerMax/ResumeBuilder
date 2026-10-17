@@ -5,7 +5,7 @@ export { useEventValue } from "./hooks/use-event-value";
 export { useHistory } from "./hooks/use-history";
 export { useMode } from "./hooks/use-mode";
 export { useSelection } from "./hooks/use-selection";
-export { CanvasView, STAGE_GAP } from "./preset/canvas";
+export { BOARD_SIZE, CanvasView } from "./preset/canvas";
 export { ElementView } from "./preset/element";
 export { EditorProvider, EditorView } from "./preset/editor";
 export type { ElementViewProps } from "./preset/registry";
