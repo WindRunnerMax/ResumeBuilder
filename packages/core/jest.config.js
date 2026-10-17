@@ -2,6 +2,8 @@ module.exports = {
   moduleFileExtensions: ["js", "ts"],
   moduleDirectories: ["node_modules", "src", "test"],
   moduleNameMapper: {
+    "^@cv/utils$": "<rootDir>/../utils/src",
+    "^@cv/json$": "<rootDir>/../json/src",
     "src/(.*)$": "<rootDir>/src/$1",
   },
   transform: {
@@ -17,6 +19,6 @@ module.exports = {
   },
   transformIgnorePatterns: ["<rootDir>/node_modules/"],
   collectCoverage: false,
-  testEnvironment: "node",
+  testEnvironment: "jsdom",
   testMatch: ["<rootDir>/test/**/*.test.ts"],
 };

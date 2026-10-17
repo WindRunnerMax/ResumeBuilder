@@ -1,5 +1,6 @@
 export type { Op, Path, Side, Snapshot, TextOp } from "@block-kit/ot-json";
 export { JSONDocument } from "./document";
+export { createExampleDoc } from "./example";
 export { A4_SIZE, createDefaultDoc, createPage, createRect, createText, DEFAULT_PADDING, DOC_VERSION } from "./preset";
 export { isValidDoc, validateDoc } from "./schema";
 export type { DeltaSubOp } from "./subtype";

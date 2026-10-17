@@ -1,4 +1,5 @@
-import type { Op } from "@cv/json";
+import type { Op as DeltaOp } from "@block-kit/delta";
+import type { Op, ResumeNode } from "@cv/json";
 import { JSONDocument } from "@cv/json";
 import type { ResumeDoc } from "@cv/json";
 
@@ -153,6 +154,50 @@ export class Editor {
     this.plugin.call("onContentChange", change);
     this.event.trigger(EDITOR_EVENT.CONTENT_CHANGE, change);
     this.event.trigger(EDITOR_EVENT.PAINT, {});
+  }
+
+  /**
+   * 提交文本内容变更
+   * - 走 ot-json 的 delta 子类型，保证可反转
+   * @param id 文本节点 id
+   * @param next 新的 delta
+   * @param undoable 是否记录到主栈，文本编辑态下由模块自己维护
+   */
+  public submitDelta(id: string, next: DeltaOp[], undoable = true): void {
+    const node = this.document.getNode(id);
+    if (!node || node.type !== "text") return;
+    if (JSON.stringify(node.delta) === JSON.stringify(next)) return;
+    const ops = this.document.submitDelta(id, next);
+    this.model.sync(ops);
+    this.renderer.patchPage();
+    const change = {
+      current: this.document.get(),
+      ops,
+      source: APPLY_SOURCE.USER,
+      ids: [id],
+      undoable,
+    };
+    this.event.trigger("CONTENT_CHANGE", change);
+  }
+
+  /**
+   * 在页面下插入节点
+   * - 同时更新父节点的 children 与 nodes 索引
+   * @param node 完整节点数据
+   * @returns 新节点 id
+   */
+  public insertNode(node: ResumeNode): string | null {
+    const parentId = node.parent || this.document.get().root;
+    const parent = this.model.get(parentId);
+    if (!parent) return null;
+    const ops: Op[] = [
+      // 列表插入的 path 必须包含插入位置
+      { p: ["nodes", parentId, "children", parent.children.length], li: node.id },
+      { p: ["nodes", node.id], oi: node },
+    ];
+    this.history.record(ops);
+    this.submit(ops, APPLY_SOURCE.USER, true);
+    return node.id;
   }
 
   /** 从 ops 中提取受影响的节点 id */

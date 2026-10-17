@@ -1,0 +1,94 @@
+/** 全局样式 */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Microsoft YaHei",
+    sans-serif;
+  background: #f5f6f7;
+  color: #1f2328;
+  -webkit-font-smoothing: antialiased;
+}
+
+/** 画布视口：隐藏滚动条但保留滚动能力 */
+.cv-viewport {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cv-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+/** 只读预览：纸张居中展示，不滚动 */
+.cv-preview {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+
+  .cv-preview-stage {
+    position: relative;
+    flex-shrink: 0;
+    width: max-content;
+    height: max-content;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  }
+}
+
+/** 导出态：纸张按实际毫米尺寸输出，保证单页 */
+body[data-export="pdf"] {
+  overflow: hidden !important;
+
+  .cv-header,
+  .cv-panel,
+  .cv-export-panel {
+    display: none !important;
+  }
+
+  .cv-export {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .cv-export-body {
+    display: block !important;
+    overflow: visible !important;
+  }
+
+  .cv-export-scroll {
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  .cv-preview {
+    display: block !important;
+    width: 210mm !important;
+    background: #ffffff !important;
+  }
+
+  .cv-preview-stage {
+    box-shadow: none !important;
+  }
+
+  .cv-viewport {
+    overflow: visible !important;
+  }
+}
+
+@page {
+  size: 210mm 297mm;
+  margin: 0;
+}

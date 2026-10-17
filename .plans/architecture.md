@@ -578,21 +578,48 @@ Escape / 点击外部 ─▶ ModeManager.exitTextEdit() ─▶ 回到 GRAPH
 - 结束时：提交 op，`patch` 只更新变动元素。
 - 整体替换（模板/导入）：`renderAll`。
 
-## 九、PDF 导出
+## 九、PDF 导出（已实现）
 
-已有：`webs/pdf/src/worker/printer.ts`（`chrome.debugger.attach` → `Page.printToPDF({ preferCSSPageSize: true, printBackground: true })` → `chrome.downloads.download`），`webs/pdf/src/worker/index.ts` 消息协议 `CDP_EXPORT_PDF`。
+导出走**独立预览页** `#/preview`，与编辑页分离，避免编辑器的覆盖层、面板干扰打印。
 
-需要补齐（`@cv/react` 或 `webs/website`）：
+```
+编辑页 --「预览导出」按钮--> #/preview
+                                ├── 左：只读 PreviewView（A4 尺寸，不滚动）
+                                └── 右：ExportPanel
+                                        ├── 文件名 + 导出按钮
+                                        ├── 扩展状态（已装 / 未装提示安装）
+                                        └── 未装扩展：复制 CDP 指令交给 Agent
+```
 
-1. **导出态 CSS**：
-   - `@page { size: 210mm 297mm; margin: 0 }`
-   - `body[data-export] .viewport { overflow: visible; padding: 0; background: #fff }`
-   - `body[data-export] .stage { transform: none }`
-   - `body[data-export] .overlay { display: none }`
-   - `body[data-export] .page { box-shadow: none; overflow: hidden }`
-2. **等待资源**：`document.fonts.ready` + 所有 `img.decode()`。
-3. **发送消息**：`chrome.runtime.sendMessage({ type: "CDP_EXPORT_PDF", payload: { filename } })`；非扩展环境降级 `window.print()`。
-4. **一页保证**：`page` 固定 A4 + `overflow:hidden`；溢出时 UI 提示（红框 + 顶栏警告），不做自动分页（README 已明确该产品决策）。
+**数据传递**：编辑页每次 `CONTENT_CHANGE` 写入 `localStorage["__cv-resume-document"]`，预览页读取快照，所以两边互不影响，导出的是稳定版本。
+
+**导出流程**（`webs/website/src/components/export-panel/index.tsx`）：
+1. `document.body.setAttribute("data-export", "pdf")` 切到导出态
+2. `waitForAssets()`：`document.fonts.ready` + 所有 `img.decode()`
+3. `chrome.runtime.sendMessage({ type: "CDP_EXPORT_PDF", payload })` 交给 `webs/pdf` 扩展
+4. 完成后移除导出态
+
+**导出态 CSS**（`webs/website/src/styles/global.scss`）：
+
+| 规则 | 作用 |
+|---|---|
+| `@page { size: 210mm 297mm; margin: 0 }` | 固定 A4，配合 `preferCSSPageSize` 单页 |
+| `body[data-export] { overflow: hidden }` | 去掉整页滚动 |
+| 隐藏 `.cv-header` / `.cv-panel` / `.cv-export-panel` | 只留纸张 |
+| `.cv-export` / `.cv-export-body` / `.cv-export-scroll` 改为 `display:block; overflow:visible; padding:0` | 取消 flex 布局与内边距 |
+| `.cv-preview { width: 210mm }` | 纸张按毫米出图 |
+| `.cv-preview-stage { box-shadow: none }` | 去掉投影 |
+
+**扩展安装**：根目录 `pnpm build:pdf` → `chrome://extensions` 开发者模式 → 加载 `webs/pdf/build`。`webs/pdf` 的 `manifest.json` 已配置 `debugger` / `downloads` 权限与 `https://*/*`、`http://*/*`、`file://*/*` 匹配。
+
+**未安装扩展的降级**：`ExportPanel` 用 `detectExtension()`（轮询 `chrome.runtime.id`，1.5s 超时）判断，未安装时：
+
+- 展示安装步骤，导出按钮置灰；
+- 提供「复制 CDP 指令」，生成一段只用 Node 内置 `http` 模块的脚本（走 `PUT /json/print`），可直接粘贴给 Agent 执行。
+
+**只读预览的布局**：`View.layout()` 检测 `editor.isReadonly()`，此时 stage 与 page 一一对应、不居中、不滚动，`mount()` 也把 `overflow` 设为 `visible`。
+
+**实测结果**：`Page.printToPDF` 输出单页、`MediaBox 594.96 × 841.92 pt`（A4）、含 `/Font` 与 `/Image`、中文字体以子集内嵌，文字可选中。
 
 ## 十、目录结构
 

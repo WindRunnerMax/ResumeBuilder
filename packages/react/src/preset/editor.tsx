@@ -32,7 +32,17 @@ export const EditorView: FC<EditorViewProps> = props => {
   }, [editor, destroyOnUnmount]);
 
   return (
-    <div ref={ref} className={className} style={{ position: "relative", overflow: "auto", ...style }}>
+    <div
+      ref={ref}
+      className={className ? `cv-viewport ${className}` : "cv-viewport"}
+      style={{
+        position: "relative",
+        overflow: "auto",
+        scrollbarWidth: "none",
+        msOverflowStyle: "none",
+        ...style,
+      }}
+    >
       {children}
     </div>
   );

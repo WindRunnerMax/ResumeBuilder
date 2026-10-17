@@ -11,7 +11,7 @@ export const STAGE_GAP = 120;
 /**
  * 画布视图
  * - 渲染 stage / page / 元素 / overlay 四层结构
- * - 与 core 的 View 通过 ref 建立关联
+ * - 尺寸与居中由 core 的 View 计算，这里只提供容器
  */
 export const CanvasView: FC<{ className?: string }> = props => {
   const editor = useEditor();
@@ -34,10 +34,10 @@ export const CanvasView: FC<{ className?: string }> = props => {
 
   // 内容变更后刷新元素列表
   useEditorEvent("CONTENT_CHANGE", () => setVersion(v => v + 1));
+  // 视口尺寸变化后重新布局纸张居中
+  useEditorEvent("RESIZE", () => editor.view.layout());
 
-  const page = editor.model.getPage();
-  const pageNode = page.data;
-  const size = editor.view.getPageSize();
+  const pageNode = editor.model.getPage().data;
 
   const children = useMemo(() => {
     const rootId = editor.document.get().root;
@@ -49,24 +49,12 @@ export const CanvasView: FC<{ className?: string }> = props => {
   }, [editor, version]);
 
   return (
-    <div
-      ref={stageRef}
-      className={props.className}
-      style={{ position: "relative", margin: "0 auto" }}
-    >
+    <div ref={stageRef} className={props.className} style={{ position: "relative" }}>
       <div
         ref={pageRef}
         data-page-id={pageNode.id}
-        style={{
-          position: "absolute",
-          left: STAGE_GAP,
-          top: STAGE_GAP,
-          width: size.width,
-          height: size.height,
-          background: pageNode.type === "page" ? pageNode.background : "#FFFFFF",
-          overflow: "hidden",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-        }}
+        data-page-root="true"
+        style={{ position: "absolute", overflow: "hidden" }}
       >
         {children}
         <div ref={overlayRef} />

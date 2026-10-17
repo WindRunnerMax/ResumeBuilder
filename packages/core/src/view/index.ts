@@ -22,6 +22,9 @@ export class View {
   private page: HTMLElement | null;
   /** 尺寸观察器 */
   private observer: ResizeObserver | null;
+  /** 上一次广播的视口尺寸，避免重复触发 */
+  private lastWidth = 0;
+  private lastHeight = 0;
 
   public constructor(private editor: Editor) {
     this.viewport = null;
@@ -33,13 +36,13 @@ export class View {
   /** 挂载到容器 */
   public mount(container: HTMLElement): void {
     this.viewport = container;
-    container.style.overflow = "auto";
+    // 只读预览不滚动，编辑态保留滚动以浏览超出视口的纸张
+    container.style.overflow = this.editor.isReadonly() ? "visible" : "auto";
     container.style.position = "relative";
     this.observer = new ResizeObserver(() => this.layout());
     this.observer.observe(container);
     this.layout();
   }
-
   /** 卸载 */
   public destroy(): void {
     this.observer && this.observer.disconnect();
@@ -87,18 +90,39 @@ export class View {
     const viewport = this.viewport;
     if (!stage || !viewport) return;
     const { width, height } = this.getPageSize();
-    const stageWidth = width + STAGE_GAP * 2;
-    const stageHeight = height + STAGE_GAP * 2;
+    const page = this.page;
+    // 只读预览：舞台与纸张一一对应，不滚动、不居中
+    if (this.editor.isReadonly()) {
+      stage.style.width = `${width}px`;
+      stage.style.height = `${height}px`;
+      stage.style.margin = "0";
+      if (page) {
+        page.style.left = "0";
+        page.style.top = "0";
+        page.style.width = `${width}px`;
+        page.style.height = `${height}px`;
+      }
+      return;
+    }
+    const viewWidth = viewport.clientWidth;
+    const viewHeight = viewport.clientHeight;
+    // 舞台至少铺满视口，纸张不足时居中，超出时保留留白以撑开滚动
+    const stageWidth = Math.max(viewWidth, width + STAGE_GAP * 2);
+    const stageHeight = Math.max(viewHeight, height + STAGE_GAP * 2);
     stage.style.width = `${stageWidth}px`;
     stage.style.height = `${stageHeight}px`;
-    const page = this.page;
     if (page) {
-      page.style.left = `${STAGE_GAP}px`;
+      page.style.left = `${Math.round((stageWidth - width) / 2)}px`;
       page.style.top = `${STAGE_GAP}px`;
       page.style.width = `${width}px`;
       page.style.height = `${height}px`;
     }
-    this.editor.event.trigger("RESIZE", { width: viewport.clientWidth, height: viewport.clientHeight });
+    // 仅在视口尺寸真正变化时广播，避免 layout 与 RESIZE 互相递归
+    if (viewWidth !== this.lastWidth || viewHeight !== this.lastHeight) {
+      this.lastWidth = viewWidth;
+      this.lastHeight = viewHeight;
+      this.editor.event.trigger("RESIZE", { width: viewWidth, height: viewHeight });
+    }
   }
 
   /**

@@ -94,7 +94,11 @@ export class Command {
         command.payload.ids.forEach(id => {
           const state = this.editor.model.get(id);
           if (!state || !state.parentId) return;
-          ops.push({ p: ["nodes", state.parentId, "children"], ld: id });
+          const parent = this.editor.model.get(state.parentId);
+          const index = parent ? parent.children.indexOf(id) : -1;
+          if (index > -1) {
+            ops.push({ p: ["nodes", state.parentId, "children", index], ld: id });
+          }
           ops.push({ p: ["nodes", id], od: state.data });
         });
         return ops;

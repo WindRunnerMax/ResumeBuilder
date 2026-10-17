@@ -52,8 +52,13 @@ const config: Configuration = {
           },
         },
       },
-      { test: /\.s[ac]ss$/, use: ["style-loader", "css-loader", "sass-loader"], type: "javascript/auto" },
-      { test: /\.css$/, use: ["style-loader", "css-loader"], type: "javascript/auto" },
+      {
+        test: /\.(sa|sc|c)ss$/,
+        use: ["style-loader", "css-loader", "sass-loader"],
+        type: "javascript/auto",
+      },
+      // BlockKit 依赖 arco 的 less 样式
+      { test: /\.less$/, use: ["style-loader", "css-loader", "less-loader"] },
       { test: /\.svg$/, type: "asset" },
     ],
   },

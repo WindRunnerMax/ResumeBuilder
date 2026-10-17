@@ -5,8 +5,8 @@ import React, { useEffect, useState } from "react";
 
 /**
  * 图形工具栏
- * - 单击元素后展示，按元素类型渲染不同按钮
- * - 文本元素额外提供「编辑」按钮
+ * - 位于顶栏中部，单击元素后展示
+ * - 按元素类型渲染按钮组，文本元素额外提供「编辑」
  */
 export const Toolbar: FC = () => {
   const editor = useEditor();
@@ -15,14 +15,16 @@ export const Toolbar: FC = () => {
   const [, setTick] = useState(0);
   const primary = ids.length === 1 ? editor.model.get(ids[0]) : null;
 
-  // 元素位置变化后刷新数值
+  // 元素变化后刷新数值
   useEffect(() => {
     const update = () => setTick(v => v + 1);
     editor.event.on("CONTENT_CHANGE", update);
     return () => editor.event.off("CONTENT_CHANGE", update);
   }, [editor]);
 
-  if (!primary) return null;
+  if (!primary) {
+    return <div style={{ flex: 1 }} />;
+  }
 
   const node = primary.data;
   const run = (command: CommandPayload) => execute(command);
@@ -33,11 +35,11 @@ export const Toolbar: FC = () => {
   };
 
   return (
-    <div style={styles.bar}>
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
       <span style={styles.type}>{node.type}</span>
       {(["x", "y", "width", "height"] as const).map(key => (
         <label key={key} style={styles.field}>
-          {key}
+          <span style={styles.label}>{LABELS[key]}</span>
           <input
             style={styles.input}
             value={Math.round(node[key])}
@@ -51,7 +53,7 @@ export const Toolbar: FC = () => {
         </button>
       )}
       <button
-        style={styles.danger}
+        style={styles.button}
         onClick={() => {
           run({ type: "DELETE", payload: { ids } });
           editor.selection.clear();
@@ -59,34 +61,37 @@ export const Toolbar: FC = () => {
       >
         删除
       </button>
-      <span style={{ flex: 1 }} />
     </div>
   );
 };
 
+/** 属性标签 */
+const LABELS = { x: "X", y: "Y", width: "W", height: "H" } as const;
+
 const styles: Record<string, React.CSSProperties> = {
-  bar: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "8px 16px",
-    background: "#FFFFFF",
-    borderBottom: "1px solid #E4E6EB",
-    fontSize: 13,
+  type: { fontSize: 11, fontWeight: 600, color: "#1664FF", textTransform: "uppercase" },
+  field: { display: "flex", alignItems: "center", gap: 4 },
+  label: { fontSize: 11, color: "#8A8F99" },
+  input: {
+    width: 60,
+    padding: "2px 6px",
+    fontSize: 12,
+    border: "1px solid #E4E6EB",
+    borderRadius: 4,
+    outline: "none",
   },
-  type: { fontWeight: 600, textTransform: "uppercase", fontSize: 12, color: "#1664FF" },
-  field: { display: "flex", alignItems: "center", gap: 4, color: "#5F6672" },
-  input: { width: 64, padding: "2px 6px", border: "1px solid #E4E6EB", borderRadius: 4 },
   primary: {
-    padding: "4px 12px",
+    padding: "3px 12px",
+    fontSize: 12,
     border: "none",
     borderRadius: 4,
     background: "#1664FF",
     color: "#FFFFFF",
     cursor: "pointer",
   },
-  danger: {
-    padding: "4px 12px",
+  button: {
+    padding: "3px 12px",
+    fontSize: 12,
     border: "1px solid #E4E6EB",
     borderRadius: 4,
     background: "#FFFFFF",
