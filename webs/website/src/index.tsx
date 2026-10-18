@@ -1,4 +1,4 @@
-import "./styles/arco.less";
+import "@arco-design/web-react/es/style/index.less";
 import "./styles/global.scss";
 
 import type { FC } from "react";

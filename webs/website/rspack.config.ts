@@ -40,6 +40,19 @@ const config: Configuration = {
       "__DEV__": JSON.stringify(IS_DEV),
       "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
     },
+    // Arco 组件与图标按需引入，由插件自动补上各组件的样式依赖
+    pluginImport: [
+      {
+        libraryName: "@arco-design/web-react",
+        customName: "@arco-design/web-react/es/{{ member }}",
+        style: true,
+      },
+      {
+        libraryName: "@arco-design/web-react/icon",
+        customName: "@arco-design/web-react/icon/react-icon/{{ member }}",
+        style: false,
+      },
+    ],
   },
   module: {
     rules: [
@@ -56,16 +69,17 @@ const config: Configuration = {
           },
         },
       },
+      // 样式走 rspack 原生 CSS 管线：直接产出 css 文件，不经过 style-loader
       {
         test: /\.(sa|sc|c)ss$/,
-        use: ["style-loader", "css-loader", "sass-loader"],
-        type: "javascript/auto",
+        use: ["sass-loader"],
+        type: "css",
       },
       // Less：用于 Arco 的按需样式与 BlockKit 自带样式
       {
         test: /\.less$/,
-        use: ["style-loader", "css-loader", "less-loader"],
-        type: "javascript/auto",
+        use: [{ loader: "less-loader", options: { lessOptions: { javascriptEnabled: true } } }],
+        type: "css",
       },
       { test: /\.svg$/, type: "asset" },
     ],
@@ -75,6 +89,8 @@ const config: Configuration = {
     // dev server 必须使用绝对路径，否则 HtmlRspackPlugin 不会注入 script 标签
     publicPath: IS_DEV ? "" : "./",
     filename: "[name].js",
+    // 原生 CSS 管线产出的样式文件名
+    cssFilename: "[name].css",
     path: path.resolve(__dirname, "build"),
   },
   devServer: {

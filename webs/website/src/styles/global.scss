@@ -534,6 +534,13 @@ body {
   white-space: nowrap;
 }
 
+/** 只读数值展示 */
+.cv-right-panel__value {
+  font-size: 12px;
+  color: var(--color-text-2);
+  font-variant-numeric: tabular-nums;
+}
+
 .cv-right-panel__actions {
   display: flex;
   gap: 8px;

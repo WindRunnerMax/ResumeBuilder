@@ -8,6 +8,13 @@ import { resolvePaperSize } from "../model/utils";
 /** 画板尺寸（px），即可滚动区域的上限 */
 export const BOARD_SIZE = 5000;
 
+/** 顶部留白（px） */
+const SCROLL_MARGIN_TOP = 20;
+/** 纸张与左侧边界的间距（px） */
+const SCROLL_MARGIN_LEFT = 5;
+/** 右侧浮动面板占位（px） */
+const RIGHT_PANEL_WIDTH = 316;
+
 /**
  * 视口模块
  * - 管理 viewport / board / page 三层 DOM
@@ -166,14 +173,24 @@ export class View {
 
   /**
    * 首次挂载时把纸张滚动到视口中间
-   * - 纸张宽度超过视口时左对齐，避免两边都被裁掉
+   * - 纸张宽度超过可用宽度时左对齐，与左侧边界留 5px 间距
+   * - 右侧有浮动面板时向左偏移其宽度的一半，实现视觉居中
+   * - 顶部保留 20px 留白
    */
   public scrollToPaper(): void {
     const viewport = this.viewport;
     if (!viewport || this.editor.isReadonly()) return;
     const { width, height } = this.getPageSize();
-    const left = width >= viewport.clientWidth ? this.paperX : this.paperX - (viewport.clientWidth - width) / 2;
-    const top = height >= viewport.clientHeight ? this.paperY : this.paperY - (viewport.clientHeight - height) / 2;
+    // 扣除右侧浮动面板后的可视宽度（左侧再预留 5px 间距）
+    const viewWidth = viewport.clientWidth - RIGHT_PANEL_WIDTH - SCROLL_MARGIN_LEFT;
+    const left =
+      width >= viewWidth
+        ? this.paperX - SCROLL_MARGIN_LEFT
+        : this.paperX - (viewWidth - width) / 2 - SCROLL_MARGIN_LEFT;
+    const top =
+      height >= viewport.clientHeight
+        ? this.paperY - SCROLL_MARGIN_TOP
+        : this.paperY - (viewport.clientHeight - height) / 2;
     viewport.scrollLeft = Math.max(0, Math.round(left));
     viewport.scrollTop = Math.max(0, Math.round(top));
   }

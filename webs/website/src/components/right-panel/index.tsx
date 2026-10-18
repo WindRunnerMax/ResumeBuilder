@@ -108,8 +108,6 @@ export const RightPanel: FC = () => {
             height={node.height}
             onPreset={selectPreset}
             onCustom={revisePaper}
-            onWidthPx={value => revise("width", value)}
-            onHeightPx={value => revise("height", value)}
             onReset={() => editor.view.scrollToPaper()}
           />
         ) : (
@@ -346,8 +344,6 @@ const PaperPanel: FC<{
   height: number;
   onPreset: (preset: string) => void;
   onCustom: (width: number, height: number) => void;
-  onWidthPx: (value: number) => void;
-  onHeightPx: (value: number) => void;
   onReset: () => void;
 }> = props => {
   return (
@@ -383,17 +379,13 @@ const PaperPanel: FC<{
         </Row>
       </div>
 
-      <div className="cv-right-panel__section">像素尺寸（px）</div>
+      <div className="cv-right-panel__section">像素尺寸</div>
       <div className="cv-right-panel__grid">
         <Row label="宽">
-          <InputNumber size="mini" value={Math.round(props.width)} onChange={v => props.onWidthPx(Number(v))} />
+          <span className="cv-right-panel__value">{Math.round(props.width)} px</span>
         </Row>
         <Row label="高">
-          <InputNumber
-            size="mini"
-            value={Math.round(props.height)}
-            onChange={v => props.onHeightPx(Number(v))}
-          />
+          <span className="cv-right-panel__value">{Math.round(props.height)} px</span>
         </Row>
       </div>
       <div className="cv-right-panel__section">操作</div>
