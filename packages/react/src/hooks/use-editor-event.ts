@@ -1,4 +1,4 @@
-import type { EventKey, EventMap } from "@cv/core";
+import type { EventKey, EventMap } from "@re/core";
 import { useEffect, useRef } from "react";
 
 import { useEditor } from "./use-editor";

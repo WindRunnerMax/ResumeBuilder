@@ -1,4 +1,4 @@
-import type { CommandPayload } from "@cv/core";
+import type { CommandPayload } from "@re/core";
 import { useCallback } from "react";
 
 import { useEditor } from "./use-editor";

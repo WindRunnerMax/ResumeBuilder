@@ -20,10 +20,10 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "paths": {
-      "@cv/utils": ["./packages/utils/src"],
-      "@cv/json": ["./packages/json/src"],
-      "@cv/core": ["./packages/core/src"],
-      "@cv/react": ["./packages/react/src"]
+      "@re/utils": ["./packages/utils/src"],
+      "@re/json": ["./packages/json/src"],
+      "@re/core": ["./packages/core/src"],
+      "@re/react": ["./packages/react/src"]
     }
   },
   "include": ["packages/*/src", "webs/*/src"]

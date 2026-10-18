@@ -1,5 +1,5 @@
 {
-  "name": "@cv/pdf",
+  "name": "@re/pdf",
   "version": "0.0.0",
   "description": "PDF export module, provides PDF export via browser extension CDP",
   "author": "",
@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "cross-env NODE_ENV=development rspack build --config ./rspack.config.ts --watch",
     "build": "rm -rf build && rspack build --config ./rspack.config.ts",
-    "build:zip": "mkdir -p .zip && rm -f .zip/chromium.zip && cd build && zip -r ../.zip/chromium.zip .",
+    "build:zip": "rm -rf .zip && mkdir -p .zip/cv-pdf && cp -R build/. .zip/cv-pdf && cd .zip && zip -r cv-pdf.zip cv-pdf",
     "lint:ts": "../../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit --skipLibCheck"
   },
   "dependencies": {},

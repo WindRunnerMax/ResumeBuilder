@@ -1,4 +1,4 @@
-import { getUniqueId, mmToPx, PAPER_SIZE } from "@cv/utils";
+import { getUniqueId, mmToPx, PAPER_SIZE } from "@re/utils";
 
 import type { PageNode, RectNode, ResumeDoc, TextNode } from "./types";
 

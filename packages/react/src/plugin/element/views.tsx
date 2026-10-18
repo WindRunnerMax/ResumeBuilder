@@ -1,4 +1,4 @@
-import type { ImageNode } from "@cv/json";
+import type { ImageNode } from "@re/json";
 import type { ElementViewProps } from "../../index";
 import { registerElementView } from "../../index";
 import type { FC } from "react";

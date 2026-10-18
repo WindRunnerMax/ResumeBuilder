@@ -1,7 +1,7 @@
 import { Input, InputNumber, Tooltip } from "@arco-design/web-react";
 import { IconPlus } from "@arco-design/web-react/icon";
-import type { ImageNode, PaperSize, RectNode } from "@cv/json";
-import { useCommand, useEditor, useEditorEvent, useMode, useSelection } from "@cv/react";
+import type { ImageNode, PaperSize, RectNode } from "@re/json";
+import { useCommand, useEditor, useEditorEvent, useMode, useSelection } from "@re/react";
 import type { FC } from "react";
 import React, { useEffect, useReducer, useState } from "react";
 

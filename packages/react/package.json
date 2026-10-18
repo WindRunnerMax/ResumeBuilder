@@ -1,7 +1,7 @@
 {
-  "name": "@cv/react",
+  "name": "@re/react",
   "version": "0.0.0",
-  "description": "React adapter for @cv/core with built-in element views",
+  "description": "React adapter for @re/core with built-in element views",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "sideEffects": [
@@ -24,9 +24,9 @@
     "@block-kit/plugin": "1.0.29",
     "@block-kit/react": "1.0.29",
     "@block-kit/utils": "1.0.29",
-    "@cv/core": "workspace: *",
-    "@cv/json": "workspace: *",
-    "@cv/utils": "workspace: *"
+    "@re/core": "workspace: *",
+    "@re/json": "workspace: *",
+    "@re/utils": "workspace: *"
   },
   "peerDependencies": {
     "react": "17.0.2",

@@ -1,6 +1,6 @@
 import { Button, Dropdown, Menu, Message } from "@arco-design/web-react";
 import { IconDown, IconGithub, IconRedo, IconUndo } from "@arco-design/web-react/icon";
-import { useCommand, useEditor, useEditorEvent, useHistory } from "@cv/react";
+import { useCommand, useEditor, useEditorEvent, useHistory } from "@re/react";
 import type { FC } from "react";
 import React from "react";
 

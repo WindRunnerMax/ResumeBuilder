@@ -1,4 +1,4 @@
-import type { Point, Rect } from "@cv/utils";
+import type { Point, Rect } from "@re/utils";
 
 /** 元素类型 */
 export const NODE_TYPE = {

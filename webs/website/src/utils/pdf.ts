@@ -28,40 +28,23 @@ export type CdpExportPdfResponse = {
   payload: { success: true } | { success: false; error: string };
 };
 
-/** 扩展检测超时 */
-const DETECT_TIMEOUT = 1500;
+/** 内容脚本与页面的消息通道，与 webs/pdf 的 content script 保持一致 */
+const RELAY_CHANNEL = "__cv_pdf__";
+const RELAY_REQUEST = "CV_PDF_REQUEST";
+const RELAY_RESPONSE = "CV_PDF_RESPONSE";
 
-/** 页面导出态属性 */
-export const EXPORT_ATTR = "data-export";
-
-/**
- * 是否运行在浏览器扩展环境中
- * - 扩展注入后 `chrome.runtime.id` 存在
- */
-export const hasExtension = (): boolean => {
-  return typeof chrome !== "undefined" && !!chrome && !!chrome.runtime && !!chrome.runtime.id;
-};
+/** 扩展以 MAIN world 注入的安装标记，与 webs/pdf 的 inject script 保持一致 */
+const EXTENSION_MARKER = "__CV_PDF__";
 
 /**
  * 探测扩展是否安装
- * - 扩展未注入时不会挂载 `chrome.runtime`
+ * - 扩展在 `document_start` 时向页面上下文挂载 `window.__CV_PDF__`
+ * - 扩展被禁用或移除后不再注入，刷新页面即消失
  */
-export const detectExtension = (): Promise<boolean> => {
-  return new Promise(resolve => {
-    if (hasExtension()) return resolve(true);
-    const start = Date.now();
-    const timer = setInterval(() => {
-      if (hasExtension()) {
-        clearInterval(timer);
-        resolve(true);
-        return;
-      }
-      if (Date.now() - start > DETECT_TIMEOUT) {
-        clearInterval(timer);
-        resolve(false);
-      }
-    }, 100);
-  });
+export const detectExtension = (): boolean => {
+  const detected = EXTENSION_MARKER in window;
+  console.log(detected ? "[cv:extension] detected" : "[cv:extension] not detected", location.origin);
+  return detected;
 };
 
 /** 纸张尺寸，单位为毫米 */
@@ -74,8 +57,7 @@ export type PaperMm = { width: number; height: number };
  */
 export const exportPdf = (filename: string, paper: PaperMm): Promise<boolean> => {
   return new Promise((resolve, reject) => {
-    const runtime = typeof chrome !== "undefined" ? chrome && chrome.runtime : undefined;
-    if (!runtime || !runtime.id) {
+    if (!detectExtension()) {
       reject(new Error("扩展未安装"));
       return;
     }
@@ -95,23 +77,37 @@ export const exportPdf = (filename: string, paper: PaperMm): Promise<boolean> =>
         },
       },
     };
-    try {
-      runtime.sendMessage(request, response => {
-        const error = runtime.lastError;
-        if (error) {
-          reject(new Error(error.message));
-          return;
-        }
-        if (!response) {
-          reject(new Error("扩展未响应"));
-          return;
-        }
-        const result = response as CdpExportPdfResponse;
-        result.payload.success ? resolve(true) : reject(new Error(result.payload.error));
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    /** 等待内容脚本转发的响应 */
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (event.source !== window || !data || data.channel !== RELAY_CHANNEL) return;
+      if (data.type !== RELAY_RESPONSE || data.requestId !== requestId) return;
+      window.removeEventListener("message", onMessage);
+      clearTimeout(timer);
+      console.log("[cv:extension] response", {
+        error: data.error,
+        response: data.response,
       });
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error(String(error)));
-    }
+      if (data.error) {
+        reject(new Error(data.error));
+        return;
+      }
+      const result = data.response as CdpExportPdfResponse | undefined;
+      // 扩展未返回结构化响应时，按未知状态处理
+      if (!result || !result.payload) {
+        reject(new Error("扩展返回了无法识别的响应"));
+        return;
+      }
+      result.payload.success ? resolve(true) : reject(new Error(result.payload.error));
+    };
+    const timer = setTimeout(() => {
+      window.removeEventListener("message", onMessage);
+      reject(new Error("扩展未响应"));
+    }, 30000);
+    window.addEventListener("message", onMessage);
+    window.postMessage({ channel: RELAY_CHANNEL, type: RELAY_REQUEST, requestId, payload: request }, "*");
   });
 };
 

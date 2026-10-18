@@ -1,4 +1,4 @@
-import { createDefaultDoc, JSONDocument } from "@cv/json";
+import { createDefaultDoc, JSONDocument } from "@re/json";
 
 import { Editor } from "../src/editor";
 import { EDITOR_MODE } from "../src/utils/constant";

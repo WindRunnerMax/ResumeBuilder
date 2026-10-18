@@ -1,5 +1,7 @@
+/// <reference types="./script/global.d.ts" />
 import type { Configuration } from "@rspack/cli";
 import HtmlRspackPlugin from "@rspack/plugin-html";
+import CopyPlugin from "copy-webpack-plugin";
 import path from "path";
 
 const IS_DEV = process.env.NODE_ENV === "development";
@@ -14,6 +16,9 @@ const config: Configuration = {
     index: "./src/index.tsx",
   },
   plugins: [
+    // 静态资源（图标、模板缩略图）原样拷贝到产物目录，保持 static/* 与 template/* 结构
+    // 排除 index.html（由 HtmlRspackPlugin 生成）与 macOS 系统文件
+    new CopyPlugin([{ from: "./public", to: ".", ignore: ["./index.html", "**/.DS_Store"] }]),
     new HtmlRspackPlugin({
       template: "./public/index.html",
       title: "Resume Builder",
@@ -23,10 +28,10 @@ const config: Configuration = {
     // 直接指向包源码，无需提前构建 packages
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@cv/utils": path.resolve(__dirname, "../../packages/utils/src"),
-      "@cv/json": path.resolve(__dirname, "../../packages/json/src"),
-      "@cv/core": path.resolve(__dirname, "../../packages/core/src"),
-      "@cv/react": path.resolve(__dirname, "../../packages/react/src"),
+      "@re/utils": path.resolve(__dirname, "../../packages/utils/src"),
+      "@re/json": path.resolve(__dirname, "../../packages/json/src"),
+      "@re/core": path.resolve(__dirname, "../../packages/core/src"),
+      "@re/react": path.resolve(__dirname, "../../packages/react/src"),
     },
     extensions: [".ts", ".tsx", ".js", ".jsx", ".json"],
   },
@@ -66,7 +71,9 @@ const config: Configuration = {
     ],
   },
   output: {
-    publicPath: "/",
+    // 生产构建使用相对路径，保证部署到 GitHub Pages 等子路径下也能正确加载资源；
+    // dev server 必须使用绝对路径，否则 HtmlRspackPlugin 不会注入 script 标签
+    publicPath: IS_DEV ? "" : "./",
     filename: "[name].js",
     path: path.resolve(__dirname, "build"),
   },

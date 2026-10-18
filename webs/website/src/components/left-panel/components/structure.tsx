@@ -1,5 +1,5 @@
 import { IconClose } from "@arco-design/web-react/icon";
-import { useEditor, useEditorEvent, useSelection } from "@cv/react";
+import { useEditor, useEditorEvent, useSelection } from "@re/react";
 import type { FC } from "react";
 import React, { useState } from "react";
 

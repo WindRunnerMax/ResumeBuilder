@@ -20,12 +20,12 @@ DOM 方案让浏览器负责排版，PDF 通过 `CDP Page.printToPDF` + `preferC
 
 ```
              ┌────────────────────────────────────────────────┐
-  React UI ─▶│ @cv/react      适配层：ref 注册 + 事件订阅       │
+  React UI ─▶│ @re/react      适配层：ref 注册 + 事件订阅       │
  (webs/website)│ 不计算、不持有数据、不直接改 DOM 位置             │
              └────────────────────┬───────────────────────────┘
                                   │ editor 实例 / ref
              ┌────────────────────▼───────────────────────────┐
-             │ @cv/core       无框架依赖，class 生命周期         │
+             │ @re/core       无框架依赖，class 生命周期         │
              │  Editor ─┬─ View      视口/页面/滚动             │
              │          ├─ Model     json 投影 + 索引 + 命中     │
              │          ├─ Renderer  DOM patch                  │
@@ -40,8 +40,8 @@ DOM 方案让浏览器负责排版，PDF 通过 `CDP Page.printToPDF` + `preferC
              └────────────────────┬───────────────────────────┘
                                   │
              ┌────────────────────▼───────────────────────────┐
-             │ @cv/json   ResumeDoc 类型 + JSONDocument(ot-json)│
-             │ @cv/utils  几何 / 单位 / 节流 / id               │
+             │ @re/json   ResumeDoc 类型 + JSONDocument(ot-json)│
+             │ @re/utils  几何 / 单位 / 节流 / id               │
              │ @block-kit/ot-json  JSON0 + text0 + delta 子类型 │
              └────────────────────────────────────────────────┘
 ```
@@ -62,7 +62,7 @@ DOM 方案让浏览器负责排版，PDF 通过 `CDP Page.printToPDF` + `preferC
 | `BlockMap = Record<id, Block>` | `ResumeDoc.nodes` | 同一份扁平 id 表 |
 | `BasicBlock { type, parent, children }` | `BaseNode { type, parent, children }` | 树结构完全相同 |
 | `BlockModuleField`（`root` / `text`） | `NodeType`（`page`/`text`/`image`/`rect`） | 块类型的扩展点，用联合类型 |
-| `x-json` 的 `delta` 子类型 | `@cv/json` 的 `delta` 子类型 | 同一份实现，直接复用 |
+| `x-json` 的 `delta` 子类型 | `@re/json` 的 `delta` 子类型 | 同一份实现，直接复用 |
 | `BlockEditor`（整个文档 = BlockKit 编辑器） | `Editor`（整个页面 = 画布编辑器） | 生命周期、事件、插件结构一致 |
 | `BlockState` | `ElementState` | 运行时投影 |
 | `BlockXModel` / `BlockXWrapModel` | `ElementView` / 元素包装 | React 渲染层一一对应 |
@@ -76,7 +76,7 @@ DOM 方案让浏览器负责排版，PDF 通过 `CDP Page.printToPDF` + `preferC
 3. 也因此多了 `ModeManager`：块的「内容编辑」与「图形操作」要显式区分模式（x-core 里块永远是可编辑的，因为没有图形操作的概念）。
 4. `History` 多一层 `EditorModule` 委托（文本块独立栈），这是纯扩展，`x-core` 的 stack 结构可以直接搬。
 
-结论：**`x-core` 的实现可以逐文件映射到 `@cv/core`**，新增的只有 `View`（页面/滚动）、`Selection`、`Overlay`、`ModeManager` 和坐标相关逻辑。`x-json` / `x-react` / `x-plugin` 基本可以按原结构平移，只是把「流动布局」换成「绝对定位」。
+结论：**`x-core` 的实现可以逐文件映射到 `@re/core`**，新增的只有 `View`（页面/滚动）、`Selection`、`Overlay`、`ModeManager` 和坐标相关逻辑。`x-json` / `x-react` / `x-plugin` 基本可以按原结构平移，只是把「流动布局」换成「绝对定位」。
 
 ## 三、包划分
 
@@ -92,13 +92,13 @@ DOM 方案让浏览器负责排版，PDF 通过 `CDP Page.printToPDF` + `preferC
 
 依赖调整：
 - `pnpm-workspace.yaml` 移除 `packages/delta`（本项目不用 BlockKit 的 Delta 作为画布数据结构，但作为文本子类型的实现细节保留在 `@block-kit/delta` 依赖里），补齐 `packages/plugin`、`packages/react`、`webs/website`。
-- 根 `tsconfig.json` 的 `paths` 从只有 `@cv/core` 补齐到 5 个包。
+- 根 `tsconfig.json` 的 `paths` 从只有 `@re/core` 补齐到 5 个包。
 - 新增依赖（全部用绝对版本号，对齐 BlocksKit 现有版本）：
   - `@block-kit/ot-json@1.0.24`（已有，在 `packages/json`）
   - `@block-kit/core` / `@block-kit/delta` / `@block-kit/utils` / `@block-kit/react` / `@block-kit/plugin`
   - react 17 / react-dom 17（与 CanvasEditor、BlocksKit 保持一致）
 
-## 四、@cv/core 核心类
+## 四、@re/core 核心类
 
 ### 4.1 Editor（总装 + 生命周期）
 
@@ -360,7 +360,7 @@ export abstract class CorePlugin {
 - `@Priority(n)` 装饰器 + `PLUGIN_CALLER` 枚举，`Plugin.call(key, payload)` 顺序调度（照搬 `core/src/plugin/`）。
 - react 插件：`wrapElement` / `renderElement` 返回 `ReactNode`，按优先级由内向外包裹（照搬 `react/src/plugin/modules/wrap.tsx`）。
 
-## 五、@cv/json 数据设计
+## 五、@re/json 数据设计
 
 ### 5.1 文档结构（扁平 id → node）
 
@@ -470,10 +470,10 @@ export class JSONDocument {
 ### 5.4 单位
 
 - 存储统一 `px`（96dpi）。`mm → px = mm * 96 / 25.4`；A4 = `793.7008 × 1122.5197`。
-- 属性面板可显示 `mm`，由 `@cv/utils` 换算。
+- 属性面板可显示 `mm`，由 `@re/utils` 换算。
 - PDF 不依赖在轴 px：`@page` 用 `mm` + `preferCSSPageSize`。
 
-## 六、@cv/react 适配层
+## 六、@re/react 适配层
 
 | 文件 | 作用 |
 |---|---|
@@ -685,5 +685,5 @@ M2 起可并行：image 插件与 webs/website 的 UI 面板。
 4. **单击选中 vs 文本聚焦**：靠 `ModeManager` 强制互斥——图形模式文本块 `readonly=true`，避免单击直接把光标放进 `contenteditable` 抢走选中逻辑。
 5. **contenteditable 高度回写**：`autoHeight` 的文本块在每次 `CONTENT_CHANGE` 后用 `scrollHeight` 更新 `height`，需防抖且避免写回 json 造成循环（用 `source: HISTORY/SYSTEM` 标记跳过）。
 6. **一页溢出**：只提示不分页。
-7. **为什么不直接依赖 `x-core`**：`x-core` 的布局由浏览器文档流决定，块没有坐标概念，`Selection`/`Overlay`/`Mode` 都无处安放；硬塞进去会让 `x-core` 同时承担「流式文档」和「自由画布」两种语义。因此抄结构、不抄代码，`@cv/core` 是 `x-core` 的**坐标化版本**。
+7. **为什么不直接依赖 `x-core`**：`x-core` 的布局由浏览器文档流决定，块没有坐标概念，`Selection`/`Overlay`/`Mode` 都无处安放；硬塞进去会让 `x-core` 同时承担「流式文档」和「自由画布」两种语义。因此抄结构、不抄代码，`@re/core` 是 `x-core` 的**坐标化版本**。
 8. **测试**：`utils` / `json` 用纯 node；`core` 用 jsdom；`react` 用 `@testing-library/react`。

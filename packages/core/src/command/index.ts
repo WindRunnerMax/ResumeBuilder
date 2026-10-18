@@ -1,4 +1,4 @@
-import type { Op, PaperSize } from "@cv/json";
+import type { Op, PaperSize } from "@re/json";
 
 import type { Editor } from "../editor";
 import { resolvePaperSize } from "../model/utils";

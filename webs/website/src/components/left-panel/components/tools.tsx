@@ -1,5 +1,5 @@
-import type { RectNode, ResumeNode, TextNode } from "@cv/json";
-import { useEditor } from "@cv/react";
+import type { RectNode, ResumeNode, TextNode } from "@re/json";
+import { useEditor } from "@re/react";
 import type { FC } from "react";
 import React from "react";
 

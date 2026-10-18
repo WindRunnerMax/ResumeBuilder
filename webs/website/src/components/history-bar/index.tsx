@@ -1,4 +1,4 @@
-import { useCommand, useHistory } from "@cv/react";
+import { useCommand, useHistory } from "@re/react";
 import type { FC } from "react";
 import React from "react";
 

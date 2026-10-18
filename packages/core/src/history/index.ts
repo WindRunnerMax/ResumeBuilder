@@ -1,4 +1,4 @@
-import type { Op, Snapshot } from "@cv/json";
+import type { Op, Snapshot } from "@re/json";
 
 import type { Editor } from "../editor";
 import { APPLY_SOURCE } from "../utils/constant";

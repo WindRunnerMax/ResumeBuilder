@@ -1,4 +1,4 @@
-import type { Rect } from "@cv/utils";
+import type { Rect } from "@re/utils";
 
 import type { Editor } from "../editor";
 

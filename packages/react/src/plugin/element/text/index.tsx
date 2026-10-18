@@ -4,7 +4,7 @@ import type { ContentChangeEvent, Editor as BlockEditor } from "@block-kit/core"
 import { EDITOR_EVENT } from "@block-kit/core";
 import { FloatToolbar, ToolBarMixin } from "@block-kit/plugin";
 import { BlockKit, Editable, useEditorStatic } from "@block-kit/react";
-import type { TextNode } from "@cv/json";
+import type { TextNode } from "@re/json";
 import type { ElementViewProps } from "../../../index";
 import { registerElementView, useEditor, useMode } from "../../../index";
 import type { FC } from "react";

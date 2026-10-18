@@ -1,4 +1,4 @@
-import { EDITOR_MODE } from "@cv/core";
+import { EDITOR_MODE } from "@re/core";
 import type { FC } from "react";
 import React, { useLayoutEffect, useRef } from "react";
 

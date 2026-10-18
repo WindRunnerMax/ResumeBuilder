@@ -1,5 +1,5 @@
-import type { ResumeDoc } from "@cv/json";
-import { createDefaultDoc } from "@cv/json";
+import type { ResumeDoc } from "@re/json";
+import { createDefaultDoc } from "@re/json";
 import type { FC } from "react";
 import React, { useEffect, useMemo } from "react";
 

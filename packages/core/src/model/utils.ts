@@ -1,5 +1,5 @@
-import type { PaperSize } from "@cv/json";
-import { mmToPx, PAPER_SIZE } from "@cv/utils";
+import type { PaperSize } from "@re/json";
+import { mmToPx, PAPER_SIZE } from "@re/utils";
 
 /**
  * 解析纸张尺寸为像素

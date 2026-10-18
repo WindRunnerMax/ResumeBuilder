@@ -1,10 +1,10 @@
 {
-  "name": "@cv/workspace",
+  "name": "@re/workspace",
   "version": "1.0.0",
   "scripts": {
-    "dev": "pnpm --filter @cv/website run dev",
-    "build": "pnpm --filter @cv/website run build",
-    "build:pdf": "pnpm --filter @cv/pdf run build",
+    "dev": "pnpm --filter @re/website run dev",
+    "build": "pnpm --filter @re/website run build",
+    "build:pdf": "pnpm --filter @re/pdf run build",
     "test": "pnpm --filter './packages/*' run test",
     "lint:ts": "pnpm --filter '*' run lint:ts"
   },

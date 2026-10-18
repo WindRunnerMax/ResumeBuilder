@@ -1,5 +1,5 @@
 import { Message, Modal } from "@arco-design/web-react";
-import { useEditor } from "@cv/react";
+import { useEditor } from "@re/react";
 import type { FC } from "react";
 import React from "react";
 

@@ -1,4 +1,4 @@
-import type { PaperSize } from "@cv/json";
+import type { PaperSize } from "@re/json";
 
 /** 纸张预设的毫米尺寸 */
 export const PAPER_MM: Record<string, { width: number; height: number }> = {

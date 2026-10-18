@@ -1,6 +1,6 @@
-import type { ResumeNode } from "@cv/json";
-import type { Point, Rect } from "@cv/utils";
-import { mmToPx, PAPER_SIZE } from "@cv/utils";
+import type { ResumeNode } from "@re/json";
+import type { Point, Rect } from "@re/utils";
+import { mmToPx, PAPER_SIZE } from "@re/utils";
 
 import type { Editor } from "../editor";
 import { resolvePaperSize } from "../model/utils";

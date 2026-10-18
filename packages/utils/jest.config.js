@@ -2,7 +2,7 @@ module.exports = {
   moduleFileExtensions: ["js", "ts"],
   moduleDirectories: ["node_modules", "src", "test"],
   moduleNameMapper: {
-    "^@cv/utils$": "<rootDir>/../utils/src",
+    "^@re/utils$": "<rootDir>/../utils/src",
     "src/(.*)$": "<rootDir>/src/$1",
   },
   transform: {

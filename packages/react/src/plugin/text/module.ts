@@ -1,6 +1,6 @@
 import type { Editor as BlockEditor } from "@block-kit/core";
-import { EditorModule } from "@cv/core";
-import type { ModuleSnapshot } from "@cv/core";
+import { EditorModule } from "@re/core";
+import type { ModuleSnapshot } from "@re/core";
 
 import { destroyTextEditor, getTextEditor } from "./editor";
 

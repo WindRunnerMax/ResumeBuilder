@@ -1,4 +1,4 @@
-import type { ResumeDoc } from "@cv/json";
+import type { ResumeDoc } from "@re/json";
 
 import czy from "../templates/Czy.json";
 import hty from "../templates/Hty.json";
@@ -19,8 +19,8 @@ export type TemplateConfig = {
   doc: ResumeDoc;
 };
 
-/** 缩略图基础路径 */
-const THUMB_BASE = "/template/";
+/** 缩略图基础路径，使用相对路径以兼容子路径部署 */
+const THUMB_BASE = "./template/";
 
 /** 模板清单，顺序与左侧面板一致 */
 export const TEMPLATE_CONFIG: TemplateConfig[] = [

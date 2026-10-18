@@ -1,6 +1,6 @@
 import type { Op as DeltaOp } from "@block-kit/delta";
-import type { Op, ResumeDoc, ResumeNode } from "@cv/json";
-import { JSONDocument, serializeDelta } from "@cv/json";
+import type { Op, ResumeDoc, ResumeNode } from "@re/json";
+import { JSONDocument, serializeDelta } from "@re/json";
 
 import { Command } from "../command";
 import { EDITOR_EVENT } from "../event/types";

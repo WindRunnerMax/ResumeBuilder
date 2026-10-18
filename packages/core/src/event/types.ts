@@ -1,5 +1,5 @@
-import type { Op, ResumeDoc, ResumeNode } from "@cv/json";
-import type { Point, Rect } from "@cv/utils";
+import type { Op, ResumeDoc, ResumeNode } from "@re/json";
+import type { Point, Rect } from "@re/utils";
 
 import type { ApplySource, EditorMode } from "../utils/constant";
 

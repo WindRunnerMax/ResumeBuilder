@@ -1,5 +1,5 @@
-import type { ElementState, RenderContext } from "@cv/core";
-import { CorePlugin } from "@cv/core";
+import type { ElementState, RenderContext } from "@re/core";
+import { CorePlugin } from "@re/core";
 
 /**
  * 页面插件

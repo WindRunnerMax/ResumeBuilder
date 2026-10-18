@@ -1,5 +1,5 @@
-import type { ResumeDoc } from "@cv/json";
-import type { JSONDocument } from "@cv/json";
+import type { ResumeDoc } from "@re/json";
+import type { JSONDocument } from "@re/json";
 
 import type { LogLevel } from "../log";
 import type { EditorModule } from "../module";

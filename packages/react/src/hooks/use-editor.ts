@@ -1,4 +1,4 @@
-import type { Editor } from "@cv/core";
+import type { Editor } from "@re/core";
 import React, { createContext } from "react";
 
 /** 编辑器上下文 */

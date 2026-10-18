@@ -1,7 +1,7 @@
-import { Editor, LOG_LEVEL } from "@cv/core";
-import type { ResumeDoc } from "@cv/json";
-import { JSONDocument } from "@cv/json";
-import { BASE_PLUGINS, CanvasView, EditorProvider, registerBaseViews } from "@cv/react";
+import { Editor, LOG_LEVEL } from "@re/core";
+import type { ResumeDoc } from "@re/json";
+import { JSONDocument } from "@re/json";
+import { BASE_PLUGINS, CanvasView, EditorProvider, registerBaseViews } from "@re/react";
 import type { FC } from "react";
 import React, { useLayoutEffect, useMemo, useRef } from "react";
 

@@ -1,4 +1,4 @@
-import { CorePlugin } from "@cv/core";
+import { CorePlugin } from "@re/core";
 
 import { PagePlugin } from "./element/page";
 import { RectPlugin } from "./element/rect";

@@ -1,6 +1,6 @@
 import { registerBaseViews } from "../src/plugin/element/views";
 import { registerTextBlock } from "../src/plugin/element/text";
-import { getElementView } from "@cv/react";
+import { getElementView } from "@re/react";
 
 describe("element views", () => {
   it("should register built-in views", () => {

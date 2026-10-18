@@ -1,6 +1,6 @@
-import { Editor, LOG_LEVEL } from "@cv/core";
-import { createExampleDoc, JSONDocument } from "@cv/json";
-import { BASE_PLUGINS, CanvasView, EditorProvider, EditorView, registerBaseViews } from "@cv/react";
+import { Editor, LOG_LEVEL } from "@re/core";
+import { createExampleDoc, JSONDocument } from "@re/json";
+import { BASE_PLUGINS, CanvasView, EditorProvider, EditorView, registerBaseViews } from "@re/react";
 import type { FC } from "react";
 import React, { useEffect, useMemo } from "react";
 

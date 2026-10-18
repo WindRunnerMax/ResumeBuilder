@@ -1,4 +1,4 @@
-import type { Rect } from "@cv/utils";
+import type { Rect } from "@re/utils";
 import { useEditor } from "./use-editor";
 import { useEventValue } from "./use-event-value";
 

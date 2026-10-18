@@ -1,5 +1,5 @@
-import type { CommandPayload } from "@cv/core";
-import { useCommand, useEditor, useSelection } from "@cv/react";
+import type { CommandPayload } from "@re/core";
+import { useCommand, useEditor, useSelection } from "@re/react";
 import type { FC } from "react";
 import React, { useEffect, useState } from "react";
 

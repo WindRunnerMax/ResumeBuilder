@@ -1,5 +1,5 @@
-import type { Rect } from "@cv/utils";
-import { composeAll } from "@cv/utils";
+import type { Rect } from "@re/utils";
+import { composeAll } from "@re/utils";
 
 import type { Editor } from "../editor";
 

@@ -1,4 +1,4 @@
-import type { ResumeNode } from "@cv/json";
+import type { ResumeNode } from "@re/json";
 import { getElementView, registerElementView } from "../src/preset/registry";
 import type { ElementViewProps } from "../src/preset/registry";
 

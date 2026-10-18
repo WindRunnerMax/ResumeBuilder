@@ -1,5 +1,5 @@
-import type { ElementState, RenderContext } from "@cv/core";
-import { CorePlugin } from "@cv/core";
+import type { ElementState, RenderContext } from "@re/core";
+import { CorePlugin } from "@re/core";
 
 /** 矩形插件，支持填充与四边独立描边 */
 export class RectPlugin extends CorePlugin {

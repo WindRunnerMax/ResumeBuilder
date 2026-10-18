@@ -2,10 +2,10 @@ module.exports = {
   moduleFileExtensions: ["js", "ts"],
   moduleDirectories: ["node_modules", "src", "test"],
   moduleNameMapper: {
-    "^@cv/utils$": "<rootDir>/../utils/src",
-    "^@cv/json$": "<rootDir>/../json/src",
-    "^@cv/core$": "<rootDir>/../core/src",
-    "^@cv/react$": "<rootDir>/../react/src",
+    "^@re/utils$": "<rootDir>/../utils/src",
+    "^@re/json$": "<rootDir>/../json/src",
+    "^@re/core$": "<rootDir>/../core/src",
+    "^@re/react$": "<rootDir>/../react/src",
     "src/(.*)$": "<rootDir>/src/$1",
   },
   transform: {

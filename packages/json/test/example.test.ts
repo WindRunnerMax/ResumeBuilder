@@ -1,5 +1,5 @@
-import type { ResumeDoc } from "@cv/json";
-import { createExampleDoc } from "@cv/json";
+import type { ResumeDoc } from "@re/json";
+import { createExampleDoc } from "@re/json";
 
 describe("example doc", () => {
   const doc: ResumeDoc = createExampleDoc();

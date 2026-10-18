@@ -1,4 +1,4 @@
-import type { EditorMode } from "@cv/core";
+import type { EditorMode } from "@re/core";
 import { useEditor } from "./use-editor";
 import { useEventValue } from "./use-event-value";
 

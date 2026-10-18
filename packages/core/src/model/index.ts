@@ -1,6 +1,6 @@
-import type { Op, ResumeDoc, ResumeNode } from "@cv/json";
-import type { Rect } from "@cv/utils";
-import { contains, rect } from "@cv/utils";
+import type { Op, ResumeDoc, ResumeNode } from "@re/json";
+import type { Rect } from "@re/utils";
+import { contains, rect } from "@re/utils";
 
 /**
  * 元素的运行时状态

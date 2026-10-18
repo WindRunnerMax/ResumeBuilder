@@ -16,9 +16,26 @@ const __MANIFEST__: Manifest = {
   background: {
     service_worker: "worker.js",
   },
-  permissions: ["activeTab", "tabs", "debugger", "downloads"],
+  permissions: ["activeTab", "tabs", "debugger", "downloads", "scripting"],
   host_permissions: [...__URL_MATCH__],
-  minimum_chrome_version: "88.0",
+  // 注入内容脚本，由它转发导出请求
+  content_scripts: [
+    {
+      matches: [...__URL_MATCH__],
+      js: ["content.js"],
+      run_at: "document_start",
+    },
+  ],
+  // 注入脚本以 MAIN world 由 worker 注册，需要声明为可访问资源
+  web_accessible_resources: [
+    {
+      resources: [`${process.env.INJECT_FILE}.js`],
+      matches: ["<all_urls>"],
+    },
+  ],
+  // `chrome.scripting.registerContentScripts` 的 `world: "MAIN"` 需要 Chrome 102+
+  // 相比在 manifest 中静态声明 `world`（需要 111+）版本要求更低
+  minimum_chrome_version: "102.0",
 };
 
 module.exports = __MANIFEST__;

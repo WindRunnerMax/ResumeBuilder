@@ -1,4 +1,4 @@
-import type { ResumeDoc } from "@cv/json";
+import type { ResumeDoc } from "@re/json";
 
 /** 本地存储 key */
 export const STORAGE_KEY = "__cv-resume-document";

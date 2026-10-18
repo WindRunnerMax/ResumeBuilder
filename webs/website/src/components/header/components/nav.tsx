@@ -1,10 +1,10 @@
-import type { RectNode, ResumeNode, TextNode } from "@cv/json";
-import { NODE_TYPE } from "@cv/json";
-import { useEditor } from "@cv/react";
+import type { RectNode, ResumeNode, TextNode } from "@re/json";
+import { NODE_TYPE } from "@re/json";
+import { useEditor } from "@re/react";
 import type { FC } from "react";
 import React, { useState } from "react";
 
-import { getUniqueId } from "@cv/utils";
+import { getUniqueId } from "@re/utils";
 
 import { CursorIcon, GrabIcon, ImageIcon, RectIcon, TextIcon } from "../../../static/icons";
 

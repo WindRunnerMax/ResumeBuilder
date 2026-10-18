@@ -1,4 +1,4 @@
-import type { Editor } from "@cv/core";
+import type { Editor } from "@re/core";
 import type { FC, ReactNode } from "react";
 import React, { useLayoutEffect, useRef } from "react";
 

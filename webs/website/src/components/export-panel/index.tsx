@@ -1,7 +1,7 @@
 import type { FC } from "react";
 import React, { useEffect, useMemo, useState } from "react";
 
-import { createCdpPrompt, detectExtension, exportPdf, hasExtension, waitForAssets } from "../../utils/pdf";
+import { createCdpPrompt, detectExtension, exportPdf, waitForAssets } from "../../utils/pdf";
 import { toPaperMm } from "../../utils/paper";
 import { loadDocument } from "../../utils/storage";
 
@@ -11,14 +11,10 @@ type Status = "idle" | "exporting" | "done" | "error";
 /** 导出面板 */
 export const ExportPanel: FC = () => {
   const [filename, setFilename] = useState("resume.pdf");
-  const [installed, setInstalled] = useState(hasExtension());
+  const [installed, setInstalled] = useState(detectExtension);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
   const [copyResult, setCopyResult] = useState<{ ok: boolean; text: string } | null>(null);
-
-  useEffect(() => {
-    detectExtension().then(setInstalled);
-  }, []);
 
   // 纸张尺寸即导出的裁剪范围
   const paper = useMemo(() => {
@@ -112,16 +108,20 @@ export const ExportPanel: FC = () => {
           <div style={styles.warn}>
             <div style={{ fontWeight: 500, marginBottom: 6 }}>未检测到导出扩展</div>
             <div style={{ lineHeight: 1.7 }}>
-              PDF 通过扩展的 CDP 能力生成，需先安装 <b>CV PDF</b> 扩展：
+              PDF 通过扩展的 CDP 能力生成，请先前往{" "}
+              <a
+                href="https://github.com/WindRunnerMax/ResumeBuilder/releases"
+                target="_blank"
+                rel="noreferrer"
+                style={styles.link}
+              >
+                GitHub Releases
+              </a>{" "}
+              下载 <code style={styles.code}>cv-pdf.zip</code> 并安装：
               <ol style={{ margin: "8px 0 0", paddingLeft: 18 }}>
-                <li>
-                  在项目根目录执行 <code style={styles.code}>pnpm build:pdf</code>
-                </li>
+                <li>解压下载的 zip 文件</li>
                 <li>打开 chrome://extensions 并开启「开发者模式」</li>
-                <li>
-                  点击「加载已解压的扩展程序」，选择{" "}
-                  <code style={styles.code}>webs/pdf/build</code>
-                </li>
+                <li>点击「加载已解压的扩展程序」，选择解压出的 cv-pdf 文件夹</li>
                 <li>刷新本页面</li>
               </ol>
             </div>
@@ -206,4 +206,5 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "1px 4px",
     borderRadius: 3,
   },
+  link: { color: "#1664FF", textDecoration: "underline" },
 };

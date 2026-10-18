@@ -1,5 +1,5 @@
 {
-  "name": "@cv/core",
+  "name": "@re/core",
   "version": "0.0.0",
   "description": "",
   "main": "dist/index.js",
@@ -18,8 +18,8 @@
   "dependencies": {
     "@block-kit/delta": "1.0.24",
     "@block-kit/ot-json": "1.0.24",
-    "@cv/json": "workspace: *",
-    "@cv/utils": "workspace: *"
+    "@re/json": "workspace: *",
+    "@re/utils": "workspace: *"
   },
   "devDependencies": {
     "@swc/core": "1.15.43",

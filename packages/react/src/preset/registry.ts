@@ -1,4 +1,4 @@
-import type { ResumeNode } from "@cv/json";
+import type { ResumeNode } from "@re/json";
 import type { FC, ReactNode } from "react";
 
 /** 元素视图属性 */
