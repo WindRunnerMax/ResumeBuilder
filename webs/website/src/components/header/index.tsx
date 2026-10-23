@@ -1,6 +1,7 @@
 import { Button, Dropdown, Menu, Message } from "@arco-design/web-react";
 import { IconDown, IconGithub, IconRedo, IconUndo } from "@arco-design/web-react/icon";
 import { useCommand, useEditor, useEditorEvent, useHistory } from "@re/react";
+import { getTimestamp } from "@re/utils";
 import type { FC } from "react";
 import React from "react";
 
@@ -34,7 +35,7 @@ export const Header: FC = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "resume.json";
+    a.download = `RESUME_${getTimestamp()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -66,7 +67,7 @@ export const Header: FC = () => {
         预览
       </Menu.Item>
       <Menu.Item key="import" onClick={onImportJson}>
-        导入 JSON
+        导入数据
       </Menu.Item>
       <Menu.Item key="clear" onClick={() => editor.history.clear()}>
         清空历史

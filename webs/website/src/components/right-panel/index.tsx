@@ -1,4 +1,4 @@
-import { Input, InputNumber, Tooltip } from "@arco-design/web-react";
+import { InputNumber, Tooltip } from "@arco-design/web-react";
 import { IconPlus } from "@arco-design/web-react/icon";
 import type { ImageNode, PaperSize, RectNode } from "@re/json";
 import { useCommand, useEditor, useEditorEvent, useMode, useSelection } from "@re/react";
@@ -399,33 +399,38 @@ const PaperPanel: FC<{
 };
 
 /**
- * 失焦或回车才提交的数字输入
- * - 避免边输入边改纸张尺寸，导致输入框被重置
+ * 数字输入封装（基于 InputNumber）
+ * - 保留内置上下步进按钮与方向键快捷加减
+ * - 失焦或回车才提交，避免边输入边改纸张尺寸导致输入框被重置
  */
 const CommitInput: FC<{ value: number; min?: number; onCommit: (value: number) => void }> = props => {
-  const [draft, setDraft] = useState(String(props.value));
+  const [draft, setDraft] = useState<number | undefined>(props.value);
 
   // 外部值变化时同步草稿
   useEffect(() => {
-    setDraft(String(props.value));
+    setDraft(props.value);
   }, [props.value]);
 
-  const commit = () => {
-    const value = Number(draft);
-    if (Number.isNaN(value) || value < (props.min ?? 0)) {
-      setDraft(String(props.value));
+  /** 校验并提交草稿，非法值回退为当前值 */
+  const commit = (value: number | undefined) => {
+    if (value === undefined || Number.isNaN(value) || value < (props.min ?? 0)) {
+      setDraft(props.value);
       return;
     }
+    setDraft(value);
     value === props.value || props.onCommit(value);
   };
 
   return (
-    <Input
+    <InputNumber
       size="mini"
+      min={props.min}
       value={draft}
-      onChange={setDraft}
-      onBlur={commit}
-      onPressEnter={commit}
+      onChange={v => setDraft(typeof v === "number" ? v : undefined)}
+      onBlur={() => commit(draft)}
+      onKeyDown={e => {
+        if ((e as unknown as KeyboardEvent).key === "Enter") commit(draft);
+      }}
     />
   );
 };

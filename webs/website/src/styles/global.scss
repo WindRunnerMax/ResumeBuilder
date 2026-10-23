@@ -385,6 +385,30 @@ body {
   }
 }
 
+/** 块级插件取色器弹层：覆盖默认 230px 宽度 */
+.block-kit-color-picker {
+  box-sizing: content-box;
+}
+
+/** 块级插件工具栏下拉：限制最大高度，使用最细滚动条 */
+.block-kit-toolbar-dropdown {
+  max-height: 300px;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-fill-4);
+    border-radius: 3px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
 /** 取色器 */
 .cv-color-input {
   width: 40px;
@@ -664,6 +688,8 @@ body {
   width: max-content;
   height: max-content;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  // 预览内容允许浏览器原生选中文本，但不响应编辑
+  cursor: text;
 }
 
 /** 导出态：只保留纸张 */

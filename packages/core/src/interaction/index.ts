@@ -77,6 +77,12 @@ export class Interaction {
   /** 指针按下 */
   private onPointerDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
+    // 只读态不响应任何画布交互（选中、拖拽、框选等），保留浏览器原生文本选中
+    // 仅当选中框/手柄等覆盖层位于画布内时，阻止其触发交互
+    if (this.editor.isReadonly()) {
+      this.getHandle(e.target) && e.preventDefault();
+      return;
+    }
 
     // 抓手工具：拖拽平移画布
     if (this.editor.tool === "GRAB") {
@@ -324,6 +330,7 @@ export class Interaction {
 
   /** 双击进入文本编辑 */
   private onDoubleClick = (e: MouseEvent) => {
+    if (this.editor.isReadonly()) return;
     const id = this.editor.view.findElementId(e.target);
     if (!id) return;
     const state = this.editor.model.get(id);
@@ -335,7 +342,7 @@ export class Interaction {
 
   /** 悬停进入 */
   private onPointerOver = (e: PointerEvent) => {
-    if (this.editor.mode.isTextEdit()) return;
+    if (this.editor.isReadonly() || this.editor.mode.isTextEdit()) return;
     const id = this.editor.view.findElementId(e.target);
     if (!id) return;
     const state = this.editor.model.get(id);
@@ -346,6 +353,7 @@ export class Interaction {
 
   /** 悬停离开 */
   private onPointerOut = (e: PointerEvent) => {
+    if (this.editor.isReadonly()) return;
     if (!this.editor.view.findElementId(e.target)) return;
     this.editor.event.trigger("HOVER_CHANGE", { node: null, point: { x: 0, y: 0 } });
   };
@@ -360,6 +368,8 @@ export class Interaction {
   }
 
   private onKeyDown = (e: KeyboardEvent) => {
+    // 只读态不响应快捷键（全选、删除、移动等）
+    if (this.editor.isReadonly()) return;
     if (this.editor.mode.isTextEdit()) {
       e.key === "Escape" && this.editor.mode.exitTextEdit();
       return;

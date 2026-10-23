@@ -10,6 +10,7 @@ import {
   FontColorPlugin,
   FontSizePlugin,
   IndentPlugin,
+  InlineCodePlugin,
   ItalicPlugin,
   LineHeightPlugin,
   LinkPlugin,
@@ -19,6 +20,7 @@ import {
   UnderlinePlugin,
 } from "@block-kit/plugin";
 
+import { SCHEMA } from "./schema";
 import { PRESET_SHORTCUT } from "./shortcut";
 
 /** 文本块编辑器缓存，按节点 id 索引 */
@@ -35,12 +37,14 @@ export const createTextEditor = (id: string, ops: DeltaOp[]): Editor => {
   const editor = new Editor({
     delta: new Delta(ops),
     logLevel: LOG_LEVEL.ERROR,
+    schema: SCHEMA,
   });
   editor.plugin.register([
     new BoldPlugin(),
     new ItalicPlugin(),
     new UnderlinePlugin(editor),
     new StrikePlugin(editor),
+    new InlineCodePlugin(editor),
     new DividerPlugin(editor),
     new LineHeightPlugin(editor),
     new LinkPlugin(editor),

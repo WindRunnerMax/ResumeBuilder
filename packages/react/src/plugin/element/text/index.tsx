@@ -114,6 +114,7 @@ const TextToolbar: FC = () => {
       <ToolBarMixin.Underline />
       <ToolBarMixin.Strike />
       <ToolBarMixin.Link />
+      <ToolBarMixin.InlineCode />
       <ToolBarMixin.FontSize />
       <ToolBarMixin.FontColor />
       <ToolBarMixin.LineHeight />

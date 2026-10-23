@@ -75,6 +75,21 @@ export const nextFrame = (fn: () => void): number => {
 };
 
 /**
+ * 格式化当前时间为 `yyyyMMdd_hhmmss`
+ * @param date 时间，默认为当前时间
+ */
+export const getTimestamp = (date = new Date()): string => {
+  const pad = (num: number, len = 2) => String(num).padStart(len, "0");
+  const yyyy = date.getFullYear();
+  const MM = pad(date.getMonth() + 1);
+  const dd = pad(date.getDate());
+  const hh = pad(date.getHours());
+  const mm = pad(date.getMinutes());
+  const ss = pad(date.getSeconds());
+  return `${yyyy}${MM}${dd}_${hh}${mm}${ss}`;
+};
+
+/**
  * 类名拼接
  * @param list
  */
