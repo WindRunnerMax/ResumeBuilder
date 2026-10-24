@@ -1,11 +1,4 @@
 import type { Editor } from "../editor";
-import { ELEMENT_KEY, TEXT_KEY } from "../utils/constant";
-
-/** 文本模块 key，与 react 侧 `TextModule.key` 保持一致 */
-const TEXT_MODULE_KEY = "text";
-
-/** 文本块选择器 */
-const TEXT_SELECTOR = `.${TEXT_KEY}`;
 
 /**
  * 键盘快捷键模块
@@ -41,30 +34,13 @@ export class Key {
 
   /**
    * 执行撤销 / 重做
-   * - 焦点在文本块内：只动**当前**文本块自己的栈，必须按 id 精确匹配
-   * - 其余情况：走编辑器主栈
+   * - 主栈是唯一时间线：文本块每次栈结构变化都已同步成条目，
+   *   因此这里无需按焦点判断，直接交给 `editor.undo/redo` 按 `type + id` 派发
    */
   private handler(isRedo = false): void {
     const editor = this.editor;
     if (editor.isReadonly()) return;
-    const id = this.getActiveTextId();
-    const textModule = id ? editor.module.getList(TEXT_MODULE_KEY).find(m => m.id === id) : null;
-    if (textModule) {
-      isRedo ? textModule.redo() : textModule.undo();
-      return;
-    }
     isRedo ? editor.redo() : editor.undo();
-  }
-
-  /**
-   * 取当前焦点所在的文本节点 id
-   * - 焦点在 BlockKit 编辑容器内时，向上找最近的文本块，再读 `data-element-id`
-   */
-  private getActiveTextId(): string | null {
-    const active = document.activeElement;
-    const block = active?.closest<HTMLElement>(TEXT_SELECTOR);
-    if (!block) return null;
-    return block.closest<HTMLElement>(`[${ELEMENT_KEY}]`)?.getAttribute(ELEMENT_KEY) || null;
   }
 
   /** Ctrl/Cmd + Z */

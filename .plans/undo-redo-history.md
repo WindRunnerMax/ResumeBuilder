@@ -361,4 +361,171 @@ new Editor({ ..., modules: { History: TextHistory } });
 
 共 51 例（core 36 + react 15）。
 
+---
+
+## 9. 二次重构：主栈成为唯一时间线
+
+§8 之后仍有两个遗留问题：
+
+1. `Key` 必须按焦点路由（焦点在 `.cv-text-block` 内走文本块栈，其余走主栈）；
+2. `useHistory` 必须拼「主栈 + 当前文本块栈」，主栈不是唯一真值，按钮状态随焦点跳变。
+
+根因是**记条目的地方和存数据的地方绑在一起**：文本块只在会话开始登记一条占位，之后逐字撤销发生在 BlockKit 自己的栈里，主栈看不到。于是只能靠焦点猜测该调哪个栈。
+
+本轮把「记条目」上收到唯一时间线，**数据仍留在各编辑器**。
+
+### 9.0 核心思想：主栈「被动接收」条目
+
+这是本轮最关键的转变，也是后续所有细节的出发点。
+
+**旧模式：谁负责写入谁记条目。** `Command.execute` 自己调 `history.record(...)`，文本块自己调 `module.record()`，两处各写各的。哪里存数据，哪里就顺手记一笔 —— 于是记录逻辑分散在 N 个调用方，且都没法知道「自己这一笔和上一个模块的栈是不是对得上」。
+
+**新模式：主栈不主动记，只被动接收模块上报的「栈结构变化」。**
+
+```
+模块栈发生实际变化
+  → 模块把变化性质上报（HistoryEffect）
+  → 主栈据此被动增 / 删自己的条目
+```
+
+具体落地就是 `TextHistory.onContentChange` 拿到父类返回值后广播 `HistoryEffect`，`TextModule.record(effect)` 再据此决定主栈「记一条」还是「丢一条」。**主栈自身完全不知道内容是什么，也不需要知道** —— 它只响应「有没有新开一格」这个事实。
+
+这个转变带来了三个直接收益：
+
+1. **单一真值**：主栈成为唯一时间线，`useHistory` 只读主栈，按钮状态不再随焦点跳变；
+2. **路由消失**：`Key` 不需要按焦点猜测该调哪个栈，统一 `editor.undo()/redo()`，由 `type + id` 精确派发；
+3. **可扩展**：新增一类可撤销内容时，只要在它的栈变化时上报 `HistoryEffect`，主栈无需任何改动。
+
+代价是模块必须精确汇报「自己栈里到底发生了什么」—— 这正是需要一个可靠的 `HistoryEffect` 返回值的原因（见 §9.2），也是为什么不能用「比较 `undoStack.length` 前后差值」这类间接推断（见 §9.3）。
+
+### 9.1 核心模型
+
+```
+主栈 History（唯一时间线，只存指针，被动接收）
+  条目 { type, id, time }
+
+各编辑器（各自维护 undo/redo 栈，主动上报变化性质）
+  CanvasModule   → Op[][]
+  TextModule(id) → 委托 BlockKit TextHistory
+
+Ctrl+Z / 按钮
+  → editor.undo() → 主栈弹一条 → 按 type+id 找模块 → module.undo()
+```
+
+主栈**不存任何操作内容**，只保证「模块栈一格 = 主栈一条」。
+
+### 9.2 BlockKit 侧：`HISTORY_EFFECT`
+
+`onContentChange` 原先返回 `void`，外部无从得知这次变更对栈做了什么。
+
+**这正是「被动接收」模式的前提条件**：主栈既然不主动记，就必须由模块准确告知「你这次到底新开了一格、并入了上一格、还是把上一格抵消掉了」。返回值不给这个信息，主栈就只能靠长度差值间接推断，一旦误判就会多记或漏记，导致主栈与模块栈错位。
+
+1.0.30 起 `onContentChange` 返回五值枚举（`packages/core/src/history/types`）：
+
+| 值 | 含义 | 主栈动作 |
+|---|---|---|
+| `NONE: 0` | 空变更 / REMOTE / `undoable: false` / 空 delta 未入栈 | 不记 |
+| `MERGE: 1` | 并入上一格 | 不记 |
+| `APPEND: 2` | 新开一格 | 记一条 |
+| `APPEND_DROP: 3` | 新开一格且 `shift` 丢掉最旧一格 | 记一条并丢最旧 |
+| `MERGE_DROP: 4` | 合并后完全抵消，栈少一格 | **丢一条** |
+
+`NONE` 取 `0` 是为了让它成为唯一 falsy 值，`if (effect)` 的语义与「有变化」一致。
+
+关键实现细节：
+
+- `APPEND → APPEND_DROP` 的升级只在 `effect === APPEND` 时发生：合并分支长度不变，`shift` 不可能由合并触发；
+- 空 delta 分支必须区分来源 —— `effect === MERGE` 说明合并分支**已经 pop 过**，栈真的少了一格，返回 `MERGE_DROP`；否则栈没动，返回 `NONE`。早期版本无条件返回 `MERGE_DROP`，会让主栈删掉一条不存在的条目。
+
+### 9.3 `@Bind` 与子类覆写的坑（重要）
+
+「被动接收」要求模块**必须真的拿到并转发**父类的返回值。而 `History.onContentChange` 被 `@Bind` 装饰，`Bind` 的实现是**原型 getter**，首次访问时把方法绑定成实例自有属性：
+
+```ts
+// packages/utils/src/decorator.ts
+get() {
+  const boundFunction = originalMethod.bind(this);
+  Object.defineProperty(this, key, { value: boundFunction, configurable: true });
+  return boundFunction;
+}
+```
+
+由此得出两条结论：
+
+1. **子类必须用 `@Bind` 方法覆写**。父类构造函数会读取 `this.onContentChange` 注册到事件总线，此时走子类原型 getter，绑定的是子类实现；若改用**箭头函数字段**，字段初始化在 `super()` **之后**，父类早已把实例属性钉死成父类实现，覆写完全失效（踩过）。
+2. **`super.onContentChange` 是安全的**。它走父类原型 getter，把父类实现绑定到实例，但不影响事件总线上已注册的子类引用 —— 事件总线持有的是子类那份。
+
+```ts
+export class TextHistory extends History {
+  private listeners: TextHistoryListener[] = [];
+
+  public constructor(editor: BlockEditor) {
+    super(editor);
+    this.editor.event.off(EDITOR_EVENT.KEY_DOWN, this.onKeyDown);
+  }
+
+  @Bind
+  protected override onContentChange(event: ContentChangeEvent): HistoryEffect {
+    const effect = super.onContentChange(event);
+    this.listeners.forEach(listener => listener(effect));
+    return effect;
+  }
+}
+```
+
+早期尝试过的两种方案都更差，不要回退：
+
+- **返回值经事件总线传出** —— 不行，`EventBus.emit` 丢弃监听器返回值；
+- **比较 `undoStack.length` 前后变化** —— 能跑但属于间接推断，且在依赖私有字段。
+
+### 9.4 业务侧改动
+
+| 文件 | 改动 |
+|---|---|
+| `react/src/plugin/text/history.ts` | 覆写 `onContentChange`，把 `HistoryEffect` 广播给订阅者 |
+| `react/src/plugin/text/module.ts` | `record(effect)` 接收效果：`APPEND`/`APPEND_DROP` → 主栈记一条，`MERGE_DROP` → 主栈丢一条；**删除 `recorded` 惰性标志** |
+| `react/src/plugin/element/text/index.tsx` | 由 `CONTENT_CHANGE` + `module.record()` 改为 `history.subscribe(effect => module.record(effect))` |
+| `core/src/history/index.ts` | `record()` 增加 `replace` 参数；新增 `drop(type, id)` |
+| `core/src/key/index.ts` | **删除整段焦点路由**，`handler()` 只剩 `editor.undo()/redo()` |
+| `react/src/hooks/use-history.ts` | 删除 `readTextState`，直接读主栈 |
+
+`TextModule` 的 `recorded` 标志及其在 `undo/redo/clear/destroy` 里的复位逻辑全部移除 —— 逐条登记后不再需要「一次会话一条」的语义。
+
+### 9.5 依赖策略
+
+业务侧统一使用 npm 上发布的 `@block-kit/*@1.0.30`，**不使用 `link:` 本地依赖**。
+
+曾尝试 link 本地 BlocksKit 调试，暴露出一系列问题（记录备查）：
+
+- `@block-kit/react` / `plugin` 内部仍解析到自己的 `core` 副本，`protected` 成员导致两个 `Editor` 类不兼容；
+- `plugin` 的样式由 rollup 用 `postcss-preserve` 抽成 `.css`，用 `tsc` 构建会丢掉产物，rspack 报 `Failed to resolve ./styles/index.scss`；
+- `@block-kit/utils` 的 `hooks.js` 依赖 `react` 但未声明，link 后 Node 解析失败。
+
+**结论：BlockKit 的改动仍走正常发版流程，业务侧只消费版本号。**
+
+### 9.6 行为验证
+
+浏览器端（headless Chrome + CDP 派发真实鼠标键盘事件）实测：
+
+| 操作 | 文本 | canUndo | canRedo |
+|---|---|---|---|
+| 进入编辑态 | — | false | false |
+| 输入 ABC | ABC 出现 | **true** | false |
+| Ctrl+Z | ABC 消失 | **false** | true |
+| 再按 Ctrl+Z ×5 | 不变 | false | true |
+| Ctrl+Shift+Z | ABC 恢复 | true | **false** |
+
+另外，双击撤销/重做按钮不再丢焦点：撤销执行后按钮变 `disabled`，而禁用元素不接收鼠标事件，双击第二下会落到外层 `body` 上 —— 已在 `.cv-history` 容器与 `HistoryBar` 容器上补 `onMouseDown` → `preventDefault()` 兜底。
+
+### 9.7 测试现状
+
+共 60 例（utils 1 + json 6 + core 35 + react 18），全部通过。
+
+| 文件 | 变化 |
+|---|---|
+| `core/test/key.test.ts` | 删除 2 例焦点路由；新增「无视焦点，始终驱动主栈」1 例 |
+| `react/test/text-history.test.ts` | 新增 `subscribe` 生效 / 取消订阅 2 例 |
+| `react/test/text-module.test.ts` | 按 effect 重写：逐条登记、`MERGE` 不记、`MERGE_DROP` 丢弃、无匹配条目不丢 |
+
+
 

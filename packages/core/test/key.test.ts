@@ -74,12 +74,9 @@ describe("Key", () => {
     expect(module.calls).toEqual(["undo", "undo", "redo", "redo"]);
   });
 
-  it("should route to text module when focus in text block", () => {
+  it("should always drive the main history regardless of focus", () => {
     const { editor, module } = createEditor();
-    const textModule = new FakeModule();
-    Object.assign(textModule, { key: "text", id: "text-1" });
-    editor.module.register(textModule);
-
+    // 文本块的栈结构变化已同步成主栈条目，Key 不再按焦点做路由
     const wrapper = document.createElement("div");
     wrapper.setAttribute("data-element-id", "text-1");
     const block = document.createElement("div");
@@ -91,46 +88,10 @@ describe("Key", () => {
     document.body.appendChild(wrapper);
     inner.focus();
 
+    editor.history.record("canvas", "node");
     press({ key: "z", ctrlKey: true });
-    expect(textModule.calls).toEqual(["undo"]);
-    expect(module.calls).toEqual([]);
-  });
-
-  it("should route to the focused text block among many", () => {
-    const { editor, module } = createEditor();
-    // 模拟文档内多个文本块，每个都有自己的栈
-    const first = new FakeModule();
-    const second = new FakeModule();
-    Object.assign(first, { key: "text", id: "text-1" });
-    Object.assign(second, { key: "text", id: "text-2" });
-    editor.module.register(first);
-    editor.module.register(second);
-
-    const wrapper = (id: string) => {
-      const el = document.createElement("div");
-      el.setAttribute("data-element-id", id);
-      const block = document.createElement("div");
-      block.className = "cv-text-block";
-      const inner = document.createElement("div");
-      inner.tabIndex = -1;
-      block.appendChild(inner);
-      el.appendChild(block);
-      document.body.appendChild(el);
-      return inner;
-    };
-    const firstInner = wrapper("text-1");
-    const secondInner = wrapper("text-2");
-
-    secondInner.focus();
-    press({ key: "z", ctrlKey: true });
-    expect(second.calls).toEqual(["undo"]);
-    // 不能被最新注册的实例截胡
-    expect(first.calls).toEqual([]);
-
-    firstInner.focus();
     press({ key: "z", ctrlKey: true, shiftKey: true });
-    expect(first.calls).toEqual(["redo"]);
-    expect(second.calls).toEqual(["undo"]);
+    expect(module.calls).toEqual(["undo", "redo"]);
   });
 
   it("should prevent native undo outside editor but not act", () => {

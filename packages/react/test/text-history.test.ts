@@ -1,5 +1,5 @@
 import { Delta } from "@block-kit/delta";
-import { Editor, EDITOR_EVENT } from "@block-kit/core";
+import { Editor, EDITOR_EVENT, HISTORY_EFFECT } from "@block-kit/core";
 
 import { TextHistory } from "../src/plugin/text/history";
 
@@ -34,8 +34,28 @@ describe("TextHistory", () => {
   it("should keep text stack working without KEY_DOWN", () => {
     const editor = createEditor();
     // 直接驱动内容变更，模拟输入
-    editor.state.apply(new Delta().retain(2).insert("!", {}), { undoable: true });
+    editor.state.apply(new Delta().retain(2).insert("!"), { undoable: true });
     expect(editor.history.isUndoAble()).toBe(true);
+  });
+
+  it("should notify effect listeners when stack changes", () => {
+    const editor = createEditor();
+    const history = editor.history as TextHistory;
+    const effects: number[] = [];
+    history.subscribe(effect => effects.push(effect));
+    editor.state.apply(new Delta().retain(2).insert("!"), { undoable: true });
+    // 新开一格，必须有回调
+    expect(effects).toEqual([HISTORY_EFFECT.APPEND]);
+  });
+
+  it("should stop notifying after unsubscribe", () => {
+    const editor = createEditor();
+    const history = editor.history as TextHistory;
+    const effects: number[] = [];
+    const dispose = history.subscribe(effect => effects.push(effect));
+    dispose();
+    editor.state.apply(new Delta().retain(2).insert("!"), { undoable: true });
+    expect(effects).toEqual([]);
   });
 
   it("should destroy without dangling listeners", () => {

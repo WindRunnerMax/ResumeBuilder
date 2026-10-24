@@ -16,9 +16,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@block-kit/delta": "1.0.29",
+    "@block-kit/delta": "1.0.30",
     "@block-kit/ot-json": "1.0.24",
-    "@block-kit/utils": "1.0.29"
+    "@block-kit/utils": "1.0.30"
   },
   "devDependencies": {
     "@swc/core": "1.15.43",

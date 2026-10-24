@@ -12,6 +12,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 
 import { TEXT_CLASS } from "../../text/const";
 import { createTextEditor } from "../../text/editor";
+import type { TextHistory } from "../../text/history";
 import { TextModule } from "../../text/module";
 
 /**
@@ -33,15 +34,16 @@ const TextBlockView: FC<ElementViewProps> = props => {
     [text.id]
   );
 
-  // 注册独立撤销栈模块，并把文本栈的变化同步到画布主栈
+  // 注册独立撤销栈模块，并把文本栈的结构变化同步到画布主栈
   // 注意：这里只负责「登记」，真正写回画布文档由下面的 effect 完成
   useEffect(() => {
     const module = new TextModule(text.id, canvas);
     canvas.module.register(module);
-    const listener = () => module.record();
-    blockEditor.event.on(EDITOR_EVENT.CONTENT_CHANGE, listener);
+    // 直接订阅 TextHistory 的 effect，主栈才能与文本栈严格一格对一格
+    const history = blockEditor.history as TextHistory;
+    const dispose = history.subscribe(effect => module.record(effect));
     return () => {
-      blockEditor.event.off(EDITOR_EVENT.CONTENT_CHANGE, listener);
+      dispose();
       // 必须按实例注销：按 key 注销会误删同 key 的其他文本块
       module.destroy();
     };

@@ -29,4 +29,6 @@
 ## 注意事项
 
 - 不要开启子 agent（Agent/Task 工具），所有任务由主 agent 直接完成
-- 使用浏览器 CDP 通信时，优先复用系统已安装的 Chrome 浏览器，默认用 headless 模式
+- 使用浏览器 CDP 通信时，优先复用系统已安装的 Chrome 浏览器，默认 headless
+  - 若是创建了调试脚本，放在 /tmp 目录下，不需要主动删除
+- 不要随意 commit / push 到远程仓库，只有在明确指令下才执行

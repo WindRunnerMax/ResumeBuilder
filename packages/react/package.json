@@ -19,11 +19,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@block-kit/core": "1.0.29",
-    "@block-kit/delta": "1.0.29",
-    "@block-kit/plugin": "1.0.29",
-    "@block-kit/react": "1.0.29",
-    "@block-kit/utils": "1.0.29",
+    "@block-kit/core": "1.0.30",
+    "@block-kit/delta": "1.0.30",
+    "@block-kit/plugin": "1.0.30",
+    "@block-kit/react": "1.0.30",
+    "@block-kit/utils": "1.0.30",
     "@re/core": "workspace: *",
     "@re/json": "workspace: *",
     "@re/utils": "workspace: *"

@@ -1,5 +1,6 @@
 import type { Op as DeltaOp } from "@block-kit/delta";
-import type { Editor as BlockEditor } from "@block-kit/core";
+import type { Editor as BlockEditor, HistoryEffect } from "@block-kit/core";
+import { HISTORY_EFFECT } from "@block-kit/core";
 import { EditorModule } from "@re/core";
 import type { Editor } from "@re/core";
 
@@ -14,7 +15,7 @@ export type TextEditorLike = Pick<BlockEditor, "history" | "state">;
 /**
  * 文本模块
  * - 把 BlockKit 的 history 包装成独立撤销栈
- * - 主栈只记录一次占位，文本块内逐字撤销不会污染主栈
+ * - 主栈与文本栈严格一格对一格：文本栈每多一格，主栈就多一条条目
  * - 文本块是非受控编辑器：撤销 / 重做后要把内容写回文档
  */
 export class TextModule extends EditorModule {
@@ -22,12 +23,10 @@ export class TextModule extends EditorModule {
   public readonly key = "text";
   /** 绑定的文本节点 id */
   public readonly id: string;
-  /** 本轮连续输入是否已向主栈记录过占位，撤销后复位 */
-  private recorded = false;
 
   /**
    * @param id 文本节点 id
-   * @param canvas 画布编辑器，用于登记占位与广播历史状态
+   * @param canvas 画布编辑器，用于同步主栈与广播历史状态
    * @param getEditor 文本编辑器获取方式，默认取全局缓存
    */
   public constructor(
@@ -45,16 +44,22 @@ export class TextModule extends EditorModule {
   }
 
   /**
-   * 记录一次内容变更
-   * - 首次产生可撤销内容时向主栈登记一条占位，之后由文本栈自己承担粒度
-   * - 撤销 / 重做会把主栈里这条占位移走，必须复位标志，否则后续输入不再登记
+   * 同步文本栈的结构变化到主栈
+   * - `APPEND` / `APPEND_DROP` 说明文本栈新开了一格，主栈补一条
+   * - `MERGE` 说明这次变更并入了上一条，主栈不动作
+   * - `MERGE_DROP` 说明合并后完全抵消，文本栈少了一格，主栈同步丢弃
+   * @param effect 文本栈的效果
    */
-  public record(): void {
-    if (this.recorded) return;
-    if (!this.canUndo()) return;
-    this.recorded = true;
-    this.canvas.history.record(this.key, this.id);
-    this.canvas.notifyHistory();
+  public record(effect: HistoryEffect): void {
+    if (effect === HISTORY_EFFECT.APPEND || effect === HISTORY_EFFECT.APPEND_DROP) {
+      this.canvas.history.record(this.key, this.id);
+      this.canvas.notifyHistory();
+      return;
+    }
+    if (effect === HISTORY_EFFECT.MERGE_DROP) {
+      this.canvas.history.drop(this.key, this.id);
+      this.canvas.notifyHistory();
+    }
   }
 
   /** 是否可撤销 */
@@ -72,8 +77,6 @@ export class TextModule extends EditorModule {
     const editor = this.editor;
     if (!editor) return;
     editor.history.undo();
-    // 占位已被主栈取走，下一次输入需要重新登记
-    this.recorded = false;
     this.syncBack(editor);
     this.canvas.notifyHistory();
   }
@@ -83,8 +86,6 @@ export class TextModule extends EditorModule {
     const editor = this.editor;
     if (!editor) return;
     editor.history.redo();
-    // 占位已回到主栈，新一轮输入需要重新登记
-    this.recorded = false;
     this.syncBack(editor);
     this.canvas.notifyHistory();
   }
@@ -103,12 +104,10 @@ export class TextModule extends EditorModule {
   /** 清空文本栈 */
   public clear(): void {
     this.editor?.history.clear();
-    this.recorded = false;
   }
 
   /** 销毁 */
   public destroy(): void {
     destroyTextEditor(this.id);
-    this.recorded = false;
   }
 }

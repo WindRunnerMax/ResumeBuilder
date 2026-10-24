@@ -1,4 +1,5 @@
 import type { Op as DeltaOp } from "@block-kit/delta";
+import { HISTORY_EFFECT } from "@block-kit/core";
 import { createDefaultDoc, JSONDocument } from "@re/json";
 import { Editor } from "@re/core";
 
@@ -83,22 +84,52 @@ describe("TextModule", () => {
     return { editor, doc, textId, block, module };
   };
 
-  it("should register one main entry for a typing session", () => {
+  it("should record one main entry per new text stack item", () => {
     const { editor, block, module } = setup();
     for (const value of ["A1", "A12", "A123"]) {
       block.type(value);
-      module.record();
+      module.record(HISTORY_EFFECT.APPEND);
     }
-    // 同一次连续输入只登记一条
-    expect(editor.history.canUndo()).toBe(true);
+    // 文本栈新开三格，主栈也必须是三条
+    expect(editor.history.undo()!.type).toBe("text");
+    expect(editor.history.undo()!.type).toBe("text");
     expect(editor.history.undo()!.type).toBe("text");
     expect(editor.history.canUndo()).toBe(false);
+  });
+
+  it("should not record when text stack merges", () => {
+    const { editor, block, module } = setup();
+    block.type("A1");
+    module.record(HISTORY_EFFECT.APPEND);
+    block.type("A12");
+    module.record(HISTORY_EFFECT.MERGE);
+    // 合并到第一格，主栈只有一条
+    expect(editor.history.undo()!.type).toBe("text");
+    expect(editor.history.canUndo()).toBe(false);
+  });
+
+  it("should drop main entry when merge fully cancels", () => {
+    const { editor, block, module } = setup();
+    block.type("A1");
+    module.record(HISTORY_EFFECT.APPEND);
+    expect(editor.history.canUndo()).toBe(true);
+    block.type("A");
+    module.record(HISTORY_EFFECT.MERGE_DROP);
+    // 文本栈少了一格，主栈必须同步丢弃
+    expect(editor.history.canUndo()).toBe(false);
+  });
+
+  it("should not drop when main stack has no matching entry", () => {
+    const { editor, module } = setup();
+    module.record(HISTORY_EFFECT.MERGE_DROP);
+    expect(editor.history.canUndo()).toBe(false);
+    expect(editor.history.canRedo()).toBe(false);
   });
 
   it("should undo text and write content back to document", () => {
     const { editor, doc, textId, block, module } = setup();
     block.type("A123");
-    module.record();
+    module.record(HISTORY_EFFECT.APPEND);
     expect(editor.history.canUndo()).toBe(true);
 
     editor.undo();
@@ -110,39 +141,17 @@ describe("TextModule", () => {
   it("should record again after undo then typing", () => {
     const { editor, textId, block, module } = setup();
     block.type("A123");
-    module.record();
+    module.record(HISTORY_EFFECT.APPEND);
     editor.undo();
-    // 撤销后主栈清空，redo 可用
     expect(editor.history.canUndo()).toBe(false);
     expect(editor.history.canRedo()).toBe(true);
 
     // 再输入新内容，必须重新入栈
     block.type("A456");
-    module.record();
+    module.record(HISTORY_EFFECT.APPEND);
     expect(editor.history.canUndo()).toBe(true);
     expect(editor.history.canRedo()).toBe(false);
     expect(readDoc(editor.document, textId)).toBe("A");
-  });
-
-  it("should record again after redo then typing", () => {
-    const { editor, block, module } = setup();
-    block.type("A123");
-    module.record();
-    editor.undo();
-    editor.redo();
-    expect(editor.history.canUndo()).toBe(true);
-
-    block.type("A1234");
-    module.record();
-    // 已复位，重做链被新操作清空
-    expect(editor.history.canRedo()).toBe(false);
-    expect(editor.history.canUndo()).toBe(true);
-  });
-
-  it("should not record when text stack is empty", () => {
-    const { editor, module } = setup();
-    module.record();
-    expect(editor.history.canUndo()).toBe(false);
   });
 
   it("should register two text modules with the same key", () => {
@@ -165,7 +174,7 @@ describe("TextModule", () => {
   it("should update history state after undo", () => {
     const { editor, block, module } = setup();
     block.type("A1");
-    module.record();
+    module.record(HISTORY_EFFECT.APPEND);
     const states: boolean[] = [];
     editor.event.on("HISTORY_CHANGE", e => states.push(e.canUndo));
     editor.undo();

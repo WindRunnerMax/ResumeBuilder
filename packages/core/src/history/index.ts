@@ -34,13 +34,37 @@ export class History {
    * - 超过栈上限时丢弃最旧条目
    * @param type 模块类型
    * @param id 作用对象 id
+   * @param replace 为 true 时替换栈顶条目而非新增，用于模块侧合并
    */
-  public record(type: string, id: string): void {
+  public record(type: string, id: string, replace = false): void {
+    if (replace && this.undoStack.length > 0) {
+      this.undoStack[this.undoStack.length - 1].time = Date.now();
+      this.redoStack = [];
+      return;
+    }
     this.undoStack.push({ type, id, time: Date.now() });
     this.redoStack = [];
     if (this.undoStack.length > STACK_SIZE) {
       this.undoStack.shift();
     }
+  }
+
+  /**
+   * 丢弃指定模块的一条条目
+   * - 模块侧合并后完全抵消时会少一格，主栈必须同步
+   * @param type 模块类型
+   * @param id 作用对象 id
+   * @returns 是否真的丢弃了一条
+   */
+  public drop(type: string, id: string): boolean {
+    for (let i = this.undoStack.length - 1; i >= 0; i--) {
+      const entry = this.undoStack[i];
+      if (entry.type === type && entry.id === id) {
+        this.undoStack.splice(i, 1);
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

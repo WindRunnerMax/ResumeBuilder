@@ -16,7 +16,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@block-kit/delta": "1.0.24",
+    "@block-kit/delta": "1.0.30",
     "@block-kit/ot-json": "1.0.24",
     "@re/json": "workspace: *",
     "@re/utils": "workspace: *"

@@ -17,9 +17,9 @@
   "license": "MIT",
   "dependencies": {
     "@arco-design/web-react": "2.64.0",
-    "@block-kit/core": "1.0.24",
-    "@block-kit/delta": "1.0.24",
-    "@block-kit/utils": "1.0.24",
+    "@block-kit/core": "1.0.30",
+    "@block-kit/delta": "1.0.30",
+    "@block-kit/utils": "1.0.30",
     "@re/core": "workspace: *",
     "@re/json": "workspace: *",
     "@re/react": "workspace: *",
