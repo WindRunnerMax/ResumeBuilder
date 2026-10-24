@@ -359,7 +359,10 @@ export class Interaction {
   };
 
   /** 键盘事件 */
-  /** 焦点是否在输入控件内，避免抢占用户输入 */
+  /**
+   * 焦点是否在输入控件内，避免抢占用户输入
+   * - 撤销 / 重做快捷键由 `Key` 模块负责，这里只处理画布交互
+   */
   private isEditingInput(): boolean {
     const el = document.activeElement as HTMLElement | null;
     if (!el) return false;

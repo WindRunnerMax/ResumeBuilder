@@ -10,6 +10,21 @@ import { convertPxToMm } from "../../utils/format";
 import { openExportPage } from "../../utils/constant";
 
 /**
+ * 阻止 mousedown 的默认聚焦行为
+ * - 撤销 / 重做按钮点击后编辑器应保留选区与焦点
+ * @param event 鼠标按下事件
+ */
+const preventFocus = (event: React.MouseEvent) => event.preventDefault();
+
+/**
+ * 撤销 / 重做按钮所在容器的 mousedown 兜底
+ * - 撤销 / 重做执行后按钮会变成 disabled，disabled 元素不接收鼠标事件，
+ *   双击的第二下会落到外层容器 / body 上抢走编辑器焦点
+ * @param event 鼠标按下事件
+ */
+const preventContainerFocus = (event: React.MouseEvent) => event.preventDefault();
+
+/**
  * 顶栏
  * - 左：工具栏（选择、分割线、图片、文本）
  * - 右：撤销/重做、操作、导出、仓库链接
@@ -97,13 +112,14 @@ export const Header: FC = () => {
         </span>
       </div>
       <div className="cv-header-right">
-        <div className="cv-history">
+        <div className="cv-history" onMouseDown={preventContainerFocus}>
           <Button
             type="text"
             size="small"
             iconOnly
             icon={<IconUndo />}
             disabled={!canUndo}
+            onMouseDown={preventFocus}
             onClick={undo}
           />
           <Button
@@ -112,6 +128,7 @@ export const Header: FC = () => {
             iconOnly
             icon={<IconRedo />}
             disabled={!canRedo}
+            onMouseDown={preventFocus}
             onClick={redo}
           />
         </div>

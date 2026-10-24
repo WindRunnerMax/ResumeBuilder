@@ -9,7 +9,7 @@ import { useEditor } from "./use-editor";
 export const useCommand = () => {
   const editor = useEditor();
   const execute = useCallback((command: CommandPayload) => editor.command.execute(command), [editor]);
-  const undo = useCallback(() => editor.history.undo(), [editor]);
-  const redo = useCallback(() => editor.history.redo(), [editor]);
+  const undo = useCallback(() => editor.undo(), [editor]);
+  const redo = useCallback(() => editor.redo(), [editor]);
   return { execute, undo, redo };
 };

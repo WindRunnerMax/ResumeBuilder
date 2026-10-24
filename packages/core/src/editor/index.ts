@@ -6,11 +6,15 @@ import { Command } from "../command";
 import { EDITOR_EVENT } from "../event/types";
 import { EventBus } from "../event/bus";
 import { History } from "../history";
+import type { HistoryEntry } from "../history";
 import { Interaction } from "../interaction";
+import { Key } from "../key";
 import { LOG_LEVEL, Logger } from "../log";
 import { ModeManager } from "../mode";
 import { Model } from "../model";
+import { CanvasModule } from "../module/canvas";
 import { ModuleManager } from "../module";
+import type { EditorModule } from "../module";
 import { Overlay } from "../overlay";
 import { Plugin } from "../plugin";
 import { Renderer } from "../renderer";
@@ -54,6 +58,10 @@ export class Editor {
   public readonly logger: Logger;
   /** 交互模块 */
   public readonly interaction: Interaction;
+  /** 快捷键模块 */
+  public readonly key: Key;
+  /** 画布撤销模块，持有 op 级撤销栈 */
+  public readonly canvas: CanvasModule;
   /** 内置状态 */
   private status: Map<EditorStateKey, boolean> = new Map();
   /** 文档代数，整文档替换时自增，驱动视图重建 */
@@ -79,10 +87,15 @@ export class Editor {
     this.selection = new Selection(this);
     this.overlay = new Overlay(this);
     this.mode = new ModeManager(this);
-    this.module = new ModuleManager(this);
-    this.history = new History(this);
+    this.module = new ModuleManager();
+    this.history = new History();
     this.command = new Command(this);
     this.interaction = new Interaction(this);
+    this.key = new Key(this);
+    this.canvas = new CanvasModule(this);
+    this.module.register(this.canvas);
+    // 快捷键是全局事件，构造即绑定，不依赖挂载顺序与焦点归属
+    this.key.bind();
     this.plugin.register(options.plugins || []);
     options.modules && options.modules.forEach(module => this.module.register(module));
     this.set(EDITOR_STATE.READONLY, !!options.readonly);
@@ -115,12 +128,16 @@ export class Editor {
     this.set(EDITOR_STATE.MOUNTED, true);
     this.view.mount(container);
     this.interaction.bind();
+    // 快捷键在构造时已绑定，重新挂载时避免重复绑定
+    this.key.unbind();
+    this.key.bind();
     this.event.trigger(EDITOR_EVENT.MOUNT, {});
   }
 
   /** 卸载容器 */
   public unmount(): void {
     this.interaction.unbind();
+    this.key.destroy();
     this.view.destroy();
     this.set(EDITOR_STATE.MOUNTED, false);
     this.container = null;
@@ -141,6 +158,8 @@ export class Editor {
    */
   public submit(ops: Op[], source: ApplySource = APPLY_SOURCE.USER, undoable = true): void {
     if (!ops.length) return;
+    // 只读态只允许系统来源（如导出前的尺寸回写）写入，用户与历史回放一律忽略
+    if (this.isReadonly() && source !== APPLY_SOURCE.SYSTEM) return;
     this.document.submit(ops);
     this.model.sync(ops);
     const ids = this.collectIds(ops);
@@ -197,8 +216,10 @@ export class Editor {
     this.selection.clear();
     this.mode.exitTextEdit();
     this.history.clear();
+    this.module.clear();
     this.view.layout();
     this.renderer.patchPage();
+    this.notifyHistory();
     this.event.trigger("CONTENT_CHANGE", {
       current: this.document.get(),
       ops: [],
@@ -223,13 +244,75 @@ export class Editor {
       { p: ["nodes", parentId, "children", parent.children.length], li: node.id },
       { p: ["nodes", node.id], oi: node },
     ];
-    this.history.record(ops);
+    if (!this.isReadonly()) {
+      this.canvas.record(ops);
+      this.history.record(this.canvas.key, node.id);
+      this.notifyHistory();
+    }
     this.submit(ops, APPLY_SOURCE.USER, true);
     return node.id;
   }
 
+  /**
+   * 撤销
+   * - 主栈弹出条目，按 type 找模块执行
+   * - 模块找不到（如文本块已被删除）时跳过，继续弹下一条
+   */
+  public undo(): void {
+    if (this.isReadonly()) return;
+    let entry = this.history.undo();
+    while (entry) {
+      const module = this.resolveModule(entry);
+      if (module) {
+        module.undo();
+        this.notifyHistory();
+        return;
+      }
+      entry = this.history.undo();
+    }
+    this.notifyHistory();
+  }
+
+  /**
+   * 重做
+   * - 与 `undo` 对称，模块不存在时跳过
+   */
+  public redo(): void {
+    if (this.isReadonly()) return;
+    let entry = this.history.redo();
+    while (entry) {
+      const module = this.resolveModule(entry);
+      if (module) {
+        module.redo();
+        this.notifyHistory();
+        return;
+      }
+      entry = this.history.redo();
+    }
+    this.notifyHistory();
+  }
+
+  /**
+   * 找到条目对应的模块
+   * - 同 key 可能有多个实例（每个文本块一个），优先按 id 精确匹配
+   * - 找不到精确实例时退回同 key 的最新实例（如画布模块）
+   * @param entry 主栈条目
+   */
+  private resolveModule(entry: HistoryEntry): EditorModule | null {
+    const list = this.module.getList(entry.type);
+    return list.find(module => module.id === entry.id) || list[list.length - 1] || null;
+  }
+
+  /** 广播历史状态，供 UI 刷新 */
+  public notifyHistory(): void {
+    this.event.trigger(EDITOR_EVENT.HISTORY_CHANGE, {
+      canUndo: this.history.canUndo(),
+      canRedo: this.history.canRedo(),
+    });
+  }
+
   /** 从 ops 中提取受影响的节点 id */
-  private collectIds(ops: Op[]): string[] {
+  public collectIds(ops: Op[]): string[] {
     const ids = new Set<string>();
     ops.forEach(op => {
       if (op.p[0] === "nodes" && op.p[1] !== undefined) ids.add(String(op.p[1]));
@@ -248,6 +331,7 @@ export class Editor {
   public destroy(): void {
     this.unmount();
     this.interaction.destroy();
+    this.key.destroy();
     this.mode.destroy();
     this.overlay.destroy();
     this.selection.destroy();

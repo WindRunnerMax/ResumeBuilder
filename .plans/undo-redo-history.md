@@ -185,7 +185,8 @@ submit(ops, USER, true)
 ### 3.7 状态汇聚
 
 - `packages/react/src/hooks/use-command.ts`：`undo/redo` 走 `editor.undo/redo`。
-- `packages/react/src/hooks/use-history.ts`：`canUndo = editor.history.canUndo()`（主栈即全局真值）。
+- `packages/react/src/hooks/use-history.ts`：焦点在文本块内时读该块自身栈（BlockKit 逐字撤销主栈看不到），否则读主栈。
+- 结论：主栈不是全局真值，按钮状态需要「主栈 + 当前文本块栈」共同决定，见 8.4。
 
 ## 4. 单元测试（完备性）
 
@@ -268,3 +269,96 @@ submit(ops, USER, true)
 - 4.8 History：改为「主栈只存 `{type,id,time}`，不持有 invert 逻辑」。
 - 4.9 Module：补充 `CanvasModule` 与 `TextModule` 两个实现，说明调度在 `Editor` 层；移除 `resolveActive()` 相关描述。
 - 4.1 装配图：加入 `Key`。
+
+## 8. 实施记录
+
+已按上述方案落地，与原设计的差异与取舍：
+
+| 项 | 实施结果 |
+|---|---|
+| 主栈合并 | **不做同类型合并**。主栈一格必须等于模块栈一格，否则「多次 undo 后再 redo」时画布模块（集合语义，一次 undo 清空栈）与主栈对不上。`History` 保持纯 `HistoryEntry[]` 双栈。 |
+| 模块栈条目 | `CanvasModule` 只存正向 `Op[][]`，`undo/redo` 时用当前快照现算反向 op；跳过失效条目导致文档已变时也能正确应用。 |
+| 文本会话 | `TextModule.record()` 由文本块监听 BlockKit `CONTENT_CHANGE` 触发；首次可撤销内容时向主栈登记一条，`recorded` 标志保证一次会话一条。文本栈空了不会落到主栈（决策 7）。 |
+| 只读 | `Editor.submit` 在只读态忽略非 `SYSTEM` 来源；`Command.execute` 只读时不入栈。 |
+| 快捷键常量 | `TEXT_CLASS` 提到 core 常量 `TEXT_KEY`，`Key` 与 react 共用，避免重复魔法值。 |
+| 新增 API | `Editor.undo/redo/notifyHistory`、`Editor.canvas`、`Editor.key`、`Editor.collectIds`（public）、`ModuleManager.clear`、`EditorModule.destroy` 保留。 |
+| 测试 | `test/history.test.ts`（9 例）、`test/canvas-module.test.ts`（8 例）、`test/key.test.ts`（7 例）、`test/editor.test.ts` 补充 4 例，共 34 例通过。 |
+
+### 8.1 修正：快捷键全局化
+
+原方案的焦点判定（必须在 `[data-cv-editor]` 内）导致两个问题：
+
+1. 点过顶栏按钮后焦点在 `body` 上，Ctrl+Z 完全没反应；
+2. 「按钮撤销」与快捷键各自为政，无法统一。
+
+修正后：
+
+- `Editor` 构造即 `key.bind()`（`unbind` 在 `destroy`/`unmount`），**不再等待 mount**；
+- `Key` 对 undo/redo 组合键**一律 `preventDefault`**，只保留编辑器一套历史；
+- 路由：焦点在 `.cv-text-block` 内 → 该文本块模块；其余 → `editor.undo()/redo()`；
+- 按钮、快捷键、子模块入口全部收敛到 `Editor.undo/redo`，模块只暴露 `undo/redo` 供调度。
+
+### 8.2 修正：文本块按实例注册与派发
+
+文本块是**非受控**的 BlockKit 编辑器，之前两个 bug 都出在这里：
+
+1. **注销用 key**：`module.unregister("text")` 会把同 key 的其他文本块一起删掉，未挂载的旧实例残留，撤销派发命中了没有栈的实例 → 改为 `unregister(module)` 按实例注销。
+2. **注册用 key 覆盖**：同一 key 只能保留一个实例 → `EditorModule` 增加 `id`，`register` 按 `key + id` 去重；`Editor.undo/redo` 用 `resolveModule(entry)` 先按 `type + id` 精确匹配，找不到再退回同 key 的最新实例（画布模块）。
+
+另外 `TextModule.undo/redo` 执行后必须把内容写回文档（`syncBack` → `submitDelta(..., false)`）：BlockKit 内容变更以 `undoable: false` 写回，不记录历史，但撤销后文档必须跟着更新。
+
+### 8.3 修正：撤销后再次输入未登记
+
+`TextModule.recorded` 是「本轮输入只登记一条」的标志，但撤销 / 重做会把这条占位从主栈移走，标志没复位，导致：
+
+> 输入 123 → 撤销 → 再输入 456 → 主栈为空，只有 redo 亮
+
+修复：`undo()` / `redo()` 执行后均把 `recorded` 置回 `false`，让后续输入重新登记。
+
+### 8.4 修正：富文本内 Ctrl+Z 与快捷键双绑定
+
+RichText 内按 Ctrl+Z 后「undo 仍亮、redo 不亮」，根因是**两套撤销同时在跑**：
+
+1. BlockKit 的 `History` 在构造时 `event.on(KEY_DOWN, onKeyDown)`，自己在处理 Ctrl+Z；
+2. 画布层 `Key` 又处理一次，且 `preventDefault` 拦不住已经执行的那次。
+
+修复：通过 BlockKit 提供的 `modules.History` 注入子类，在子类构造里主动退订内置快捷键：
+
+```ts
+/** 文本块专用 History：不处理快捷键，只承接内容变更 */
+export class TextHistory extends History {
+  public constructor(editor: BlockEditor) {
+    super(editor);
+    // 父类构造时已按 `@Bind` 后的引用订阅，这里用同一引用精确退订
+    this.editor.event.off(EDITOR_EVENT.KEY_DOWN, this.onKeyDown);
+  }
+}
+
+// createTextEditor
+new Editor({ ..., modules: { History: TextHistory } });
+```
+
+- 用**继承 + 构造函数退订**，而不是外部 `off` 或空实现覆盖：
+  - 外部 `off` 需要 `as unknown as` 绕开 `protected`，属于反模式；
+  - 空 `onKeyDown` 会整段屏蔽父类逻辑，BlockKit 后续在 `onKeyDown` 内新增的必要处理会被静默跳过；
+  - 退订语义准确，且 `destroy()` 仍能按同一引用解绑（`EventBus.off` 幂等）。
+- 只退订 `KEY_DOWN`，内容变更监听保留，文本栈仍正常记录；
+- `Selection` 自己的 `onArrowKeyDown` 不受影响；
+- 撤销 / 重做统一由画布 `Key` 调度，富文本内外只有一套记录。
+
+同时 `Key` 的文本块路由改为**按 `data-element-id` 精确匹配**（此前 `module.get("text")` 会取到最新注册的实例，多文本块时撤错块）；`useHistory` 在焦点位于文本块时读取该块自身栈的状态，保证按钮与实际可用操作一致。
+
+### 8.5 测试沉淀
+
+| 文件 | 覆盖 |
+|---|---|
+| `core/test/history.test.ts`（9） | 纯栈：条目字段、弹栈迁移、上限、清空、跨类型顺序 |
+| `core/test/canvas-module.test.ts`（8） | MOVE/RESIZE/DELETE/REVISE、多选一次撤销、连续撤销、redo 链 |
+| `core/test/key.test.ts`（8） | 全局快捷键：无焦点、Meta、Shift+Z / Ctrl+Y、文本块路由、**多文本块按 id 路由**、只读、卸载 |
+| `core/test/editor.test.ts`（11） | 调度、失效条目跳过、loadDocument 清空、只读、多选一条、**同 key 按 id 派发 + 按实例注销** |
+| `react/test/text-history.test.ts`（4） | 注入生效、**只退订 History 的 KEY_DOWN**、内容监听保留、`destroy()` 正常解绑 |
+| `react/test/text-module.test.ts`（7） | 一次会话一条、撤销回写文档、**撤销后再输入重新登记**、重做后再输入、空栈不登记、同 key 多实例注册/注销、历史状态广播 |
+
+共 51 例（core 36 + react 15）。
+
+

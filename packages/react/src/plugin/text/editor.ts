@@ -20,6 +20,7 @@ import {
   UnderlinePlugin,
 } from "@block-kit/plugin";
 
+import { TextHistory } from "./history";
 import { SCHEMA } from "./schema";
 import { PRESET_SHORTCUT } from "./shortcut";
 
@@ -38,6 +39,8 @@ export const createTextEditor = (id: string, ops: DeltaOp[]): Editor => {
     delta: new Delta(ops),
     logLevel: LOG_LEVEL.ERROR,
     schema: SCHEMA,
+    // 撤销 / 重做统一由画布层 `Key` 调度，文本块不再自己处理快捷键
+    modules: { History: TextHistory },
   });
   editor.plugin.register([
     new BoldPlugin(),

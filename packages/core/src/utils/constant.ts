@@ -45,3 +45,6 @@ export const HANDLE_KEY = "data-handle";
 
 /** 编辑器容器属性，用于查找根节点 */
 export const EDITOR_KEY = "data-cv-editor";
+
+/** 文本块容器类名，与 react 侧 `TEXT_CLASS` 保持一致 */
+export const TEXT_KEY = "cv-text-block";

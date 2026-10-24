@@ -13,6 +13,7 @@
 
 - 项目间类型，依赖根目录的 tsconfig path alias
 - 项目编译，依赖 rspack 的 resolve.alias 实现，无需提前编译包
+- 编辑器和富文本都是以非受控的形式管理的，变更都要以各自实例来操作
 
 ## 依赖管理
 
@@ -28,4 +29,4 @@
 ## 注意事项
 
 - 不要开启子 agent（Agent/Task 工具），所有任务由主 agent 直接完成
-- 使用浏览器 CDP 通信时，优先复用系统已安装的 Chrome 浏览器
+- 使用浏览器 CDP 通信时，优先复用系统已安装的 Chrome 浏览器，默认用 headless 模式

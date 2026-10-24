@@ -68,9 +68,24 @@ export class Command {
     this.editor.plugin.call("onCommand", ctx);
     const ops = ctx.ops.length ? ctx.ops : this.translate(command);
     if (!ops.length) return [];
-    this.editor.history.record(ops);
+    if (!this.editor.isReadonly()) {
+      const targetId = this.getTargetId(ops);
+      // 先入栈再提交：此时文档仍是旧快照，模块 invert 才是正确的
+      this.editor.canvas.record(ops);
+      this.editor.history.record(this.editor.canvas.key, targetId);
+      this.editor.notifyHistory();
+    }
     this.editor.submit(ops, APPLY_SOURCE.USER, true);
     return ops;
+  }
+
+  /**
+   * 取首个受影响的节点 id
+   * - 多选操作也只产生一条主栈记录
+   * @param ops 本次变更的 ops
+   */
+  private getTargetId(ops: Op[]): string {
+    return this.editor.collectIds(ops)[0] || this.editor.document.get().root;
   }
 
   /** 把命令翻译成 ops */

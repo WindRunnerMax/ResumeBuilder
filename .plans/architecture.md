@@ -33,8 +33,9 @@ DOM 方案让浏览器负责排版，PDF 通过 `CDP Page.printToPDF` + `preferC
              │          ├─ Selection 选中/拖拽/缩放/吸附         │
              │          ├─ Mode      图形态 / 文本编辑态          │
              │          ├─ Event     总线 + 原生事件             │
-             │          ├─ History   主栈（ot-json op）          │
-             │          ├─ Module    独立栈模块（文本/保留画板）  │
+             │          ├─ History   主栈（{type,id,time} 索引）  │
+             │          ├─ Module    模块栈（画布 op / 文本 delta）│
+             │          ├─ Key       document keydown 撤销/重做    │
              │          ├─ Plugin    渲染/命令插件调度           │
              │          └─ Command   统一变更入口                │
              └────────────────────┬───────────────────────────┘
@@ -119,6 +120,8 @@ export class Editor {
   public readonly plugin: Plugin;
   public readonly command: Command;
   public readonly logger: Logger;
+  public readonly key: Key;
+  public readonly canvas: CanvasModule;
 
   public constructor(options: EditorOptions = {}) {}
   public mount(container: HTMLDivElement): void;
@@ -277,69 +280,86 @@ export const EDITOR_EVENT = {
 
 react 只订阅这些事件，不读内部对象。**不提供 `ZOOM` 事件**（不支持缩放）。
 
-### 4.8 History（主栈，ot-json）
+### 4.8 History（主栈，纯索引）
+
+主栈**只记索引，不碰操作内容**，可脱离 `Editor` 单测：
 
 ```ts
+export type HistoryEntry = { type: string; id: string; time: number };
+
 export class History {
-  public record(ops: Op[], snapshot: Snapshot): void;
-  public undo(): void;
-  public redo(): void;
+  public record(type: string, id: string): void;
+  /** 弹出 undo 栈顶并压入 redo 栈 */
+  public undo(): HistoryEntry | null;
+  /** 弹出 redo 栈顶并压回 undo 栈 */
+  public redo(): HistoryEntry | null;
   public canUndo(): boolean;
   public canRedo(): boolean;
-  public beginBatch(): void;   // 注意：不要与 closeBatch 混用
-  public closeBatch(): void;
   public clear(): void;
 }
 ```
 
-对照 canvas 版 `core/src/history/index.ts`：
+要点：
 
-| canvas 版 | DOM 版 |
-|---|---|
-| `changes.invert(previous)` 用整份 DeltaSet | `json.invert(ops, snapshot)` 按 op 路径反转 |
-| 800ms 定时合并 `temp` | 同策略（`compose` 合并时间窗内同类 op），交互结束立即入栈 |
-| `state.apply(op, {undoable:false})` | `JSONDocument.apply` + `Model.sync` + `Renderer.patch` |
+- 主栈一格 = 模块栈一格：连续撤销后 redo 必须逐条回弹，否则画布模块按集合语义撤销后会对不上；因此主栈不做同类型合并。
+- 撤销粒度、op 反转全部下沉到模块（见 4.9）。
+- 栈上限 200，超出丢弃最旧条目；新操作清空 redo 栈。
 
-一次拖拽 = 一组 op = 一次 undo。
+### 4.9 Module（模块撤销栈，对应飞书 module）
 
-### 4.9 Module（独立撤销栈，对应飞书 module）
-
-飞书模型：主模块维护完整内容栈；文本块、画板是独立 module，各自维护栈；主栈里存 `{ _id: 'module1' }` 占位。
-
-本项目落地：
+飞书模型：主栈只存索引，模块各自维护栈。本项目落地：
 
 ```ts
 /** 可独立持有撤销栈的模块 */
 export abstract class EditorModule {
-  public abstract readonly key: string;      // "text" | 预留 "board"
-  public abstract readonly prefix: Path;     // 如 ["nodes", id]
+  public abstract readonly key: string;     // "canvas" | "text"
+  public abstract readonly id: string;      // 同 key 多实例时区分，如文本块 id
   public abstract canUndo(): boolean;
   public abstract canRedo(): boolean;
   public abstract undo(): void;
   public abstract redo(): void;
-  public abstract getSnapshot(): ModuleSnapshot;  // 供主栈占位
+  public abstract clear(): void;
+  public abstract destroy(): void;
 }
 
-/** 主栈条目 */
-export type HistoryEntry =
-  | { kind: "ops"; ops: Op[] }
-  | { kind: "module"; moduleKey: string; path: Path };
-
-/** 按 id/焦点调度 */
+/** 按 key 调度（不看路径、不做焦点判定） */
 export class ModuleManager {
-  public register(module: EditorModule): void;
-  public get(key: string, path: Path): EditorModule | null;
-  public resolveActive(): EditorModule | null;
+  public register(module: EditorModule): void;      // 按 key + id 去重
+  public unregister(module: EditorModule): void;    // 按实例注销
+  public get(key: string): EditorModule | null;     // 同 key 取最新
+  public getList(key: string): EditorModule[];
+  public getAll(): EditorModule[];
+  public clear(): void;
+  public destroy(): void;
 }
 ```
 
-`History.undo()`：
-1. 取栈顶。
-2. `kind === "ops"` → `JSONDocument.apply(invert)`。
-3. `kind === "module"` → 按 `key + path` 找到实例 → `module.undo()`（只撤销 `prefix` 下路径）。
+两个实现：
 
-判定：焦点在文本块 `contenteditable` 内 → 返回文本 module；在画布上 → `null`，走主栈。
-文本块是第一个实现；画板只留接口。
+| 模块 | 位置 | 栈内容 | 粒度 |
+|---|---|---|---|
+| `CanvasModule`（`key = "canvas"`） | `core/src/module/canvas.ts`，`Editor` 构造时内置 | `Op[][]` | 一次命令（含多选）一格 |
+| `TextModule`（`key = "text"`） | `react/src/plugin/text/module.ts`，每个文本块一个 | 委托 BlockKit `history` | 块内逐字，1s 内合并 |
+
+调度在 `Editor`：
+
+```ts
+public undo(): void {
+  let entry = this.history.undo();
+  while (entry) {
+    const module = this.resolveModule(entry); // 先按 type + id 精确匹配
+    if (module) return void (module.undo(), this.notifyHistory());
+    entry = this.history.undo(); // 模块已失效（如文本块被删）→ 跳过
+  }
+  this.notifyHistory();
+}
+```
+
+文本块是非受控的 BlockKit 编辑器：`TextModule.undo/redo` 执行后必须把 BlockKit 内容 `submitDelta(..., false)` 写回文档，否则文档回退了、文本块 DOM 不会跟着变。
+
+`CanvasModule` 栈里只存正向 op，`undo/redo` 时用**当前快照**现算反向 op：主栈跳过失效条目后文档可能已被别的条目改变，现算比入栈时缓存更稳。多选 `MOVE` 的 op 在同一数组里，天然一条记录。
+
+`TextModule.record()` 在块内首次产生可撤销内容时向主栈登记一次占位，之后逐字撤销只在 BlockKit 栈里进行；文本栈空了也不会继续落到主栈。
 
 ### 4.10 Plugin（两层插件）
 
@@ -523,18 +543,32 @@ export const TextBlock: FC<{ editor: CanvasEditor; state: ElementState }> = ({ e
 
 ```ts
 /** 文本模块：把 BlockKit 的 history 包成 EditorModule */
-export class TextModule implements EditorModule {
+export class TextModule extends EditorModule {
   public readonly key = "text";
-  public get prefix() { return ["nodes", this.state.id]; }
-  public canUndo() { return this.blockEditor.history.isUndoAble(); }
-  public undo() { this.blockEditor.history.undo(); }
-  public redo() { this.blockEditor.history.redo(); }
+  /** 首次产生可撤销内容时向主栈登记一次占位 */
+  public record() { /* history.record("text", id) */ }
+  public canUndo() { return this.editor?.history.isUndoAble() || false; }
+  public undo() { this.editor?.history.undo(); }
+  public redo() { this.editor?.history.redo(); }
+  public clear() { this.editor?.history.clear(); }
 }
 ```
 
-- 主栈记录「进入文本块编辑」这一事件为 `{ kind: "module", moduleKey: "text", path }`。
-- 文本块内连续输入只进文本栈，主栈不膨胀；退出文本块后，主栈仍能整体回滚这次文本编辑（`module.getSnapshot()` 存 BlockKit delta 前后值）。
-- 画布上的 `move/resize/delete` 走主栈 `kind: "ops"`。
+- 监听 BlockKit `CONTENT_CHANGE` 调 `module.record()`，主栈只有一条 `{ type: "text", id }`。
+- 文本块内连续输入只进文本栈，主栈不膨胀；离开文本块后，撤销仍能按条目回到该块执行。
+- 画布上的 `move/resize/delete/revise` 走 `CanvasModule`。
+
+### 4.11 Key（快捷键）
+
+`core/src/key/index.ts`，`Editor` 构造时创建并 `bind()`，`destroy()` 时解绑（`mount/unmount` 只做幂等重绑）；`Interaction` 只处理选择/删除/移动/工具/Esc。
+
+```
+1. Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z / Ctrl/Cmd+Y → 一律 preventDefault（屏蔽浏览器原生撤销）
+2. isReadonly() → return
+3. 焦点在文本块内 → module.get("text").undo()/redo()；其余情况 → editor.undo()/redo()
+```
+
+快捷键是全局事件，**不依赖焦点在画布内**：点一次画布后再点顶栏按钮，焦点落在 `body` 上也能撤销。焦点在画布外的面板输入框时同样 preventDefault，保持「只有一套撤销记录」；文本块内的撤销由 BlockKit 自己的栈处理，空了也不会落到主栈。
 
 ## 八、交互管线
 
@@ -547,10 +581,10 @@ Event.native ─▶ hitTest(closest [data-element-id]) ─▶ Selection(单击�
    │                                                    │
    │ grab 预览：只改 DOM transform                       │ pointerup
    ▼                                                    ▼
-Command.execute(ops) ─▶ JSONDocument.submit(ops)
-                          ├─▶ History.record
-                          ├─▶ ModuleManager.resolveActive()
-                          └─▶ Model.sync ─▶ Renderer.patch / Overlay.patch
+Command.execute(command) ─▶ ops ─▶ CanvasModule.record(ops)
+                                   ─▶ History.record("canvas", targetId)
+                                   ─▶ Editor.submit(ops)
+                                        └─▶ JSONDocument.submit ─▶ Model.sync ─▶ Renderer.patch / Overlay.patch
                                                   │
                                                   ▼
                                           Event.trigger(CONTENT_CHANGE / …)

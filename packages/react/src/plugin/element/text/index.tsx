@@ -1,6 +1,6 @@
 import type { Op as DeltaOp } from "@block-kit/delta";
 import { Delta } from "@block-kit/delta";
-import type { ContentChangeEvent, Editor as BlockEditor } from "@block-kit/core";
+import type { Editor as BlockEditor } from "@block-kit/core";
 import { EDITOR_EVENT } from "@block-kit/core";
 import { FloatToolbar, ToolBarMixin } from "@block-kit/plugin";
 import { BlockKit, Editable, useEditorStatic } from "@block-kit/react";
@@ -8,10 +8,10 @@ import type { TextNode } from "@re/json";
 import type { ElementViewProps } from "../../../index";
 import { registerElementView, useEditor, useMode } from "../../../index";
 import type { FC } from "react";
-import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 
 import { TEXT_CLASS } from "../../text/const";
-import { createTextEditor, destroyTextEditor } from "../../text/editor";
+import { createTextEditor } from "../../text/editor";
 import { TextModule } from "../../text/module";
 
 /**
@@ -33,18 +33,22 @@ const TextBlockView: FC<ElementViewProps> = props => {
     [text.id]
   );
 
-  // 注册独立撤销栈模块
-  useLayoutEffect(() => {
-    const module = new TextModule(text.id);
-    module.setElement(ref.current);
+  // 注册独立撤销栈模块，并把文本栈的变化同步到画布主栈
+  // 注意：这里只负责「登记」，真正写回画布文档由下面的 effect 完成
+  useEffect(() => {
+    const module = new TextModule(text.id, canvas);
     canvas.module.register(module);
+    const listener = () => module.record();
+    blockEditor.event.on(EDITOR_EVENT.CONTENT_CHANGE, listener);
     return () => {
-      canvas.module.unregister("text");
-      destroyTextEditor(text.id);
+      blockEditor.event.off(EDITOR_EVENT.CONTENT_CHANGE, listener);
+      // 必须按实例注销：按 key 注销会误删同 key 的其他文本块
+      module.destroy();
     };
-  }, [canvas, text.id]);
+  }, [blockEditor, canvas, text.id]);
 
   // 文本编辑结果写回数据，内容去重由 core 的 submitDelta 统一处理
+  // BlockKit 每次 CONTENT_CHANGE 只触发一次，因此只写一次
   useEffect(() => {
     const listener = () => {
       const ops = blockEditor.state.block.toDelta().ops as DeltaOp[];

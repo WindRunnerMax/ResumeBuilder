@@ -1,162 +1,94 @@
-import type { Op, Snapshot } from "@re/json";
-
-import type { Editor } from "../editor";
-import { APPLY_SOURCE } from "../utils/constant";
-
-/** 主栈条目 */
-export type HistoryEntry =
-  | {
-      /** 普通 op 组 */
-      kind: "ops";
-      /** 反转后的 ops */
-      ops: Op[];
-    }
-  | {
-      /** 委托给独立模块的占位 */
-      kind: "module";
-      /** 模块 key */
-      moduleKey: string;
-      /** 模块作用路径 */
-      path: Array<string | number>;
-    };
+/**
+ * 主栈条目
+ * - 只保存索引信息，不保存任何操作内容
+ * - 撤销 / 重做时按 `type` 找到对应模块，由模块自己执行
+ */
+export type HistoryEntry = {
+  /** 模块类型，如 "canvas" | "text" */
+  type: string;
+  /** 作用对象 id */
+  id: string;
+  /** 记录时间（ms） */
+  time: number;
+};
 
 /** 栈最大深度 */
 const STACK_SIZE = 200;
 
 /**
  * 主撤销栈
- * - 记录完整内容变更，保证整体可回滚
- * - 独立模块（如文本块）以占位条目形式参与
+ * - 只记录「什么类型的操作、作用于哪个 id、何时」
+ * - 不 invert、不 compose、不碰任何操作内容
+ * - 撤销粒度、合并、批量全部下沉到各模块
+ * - 栈的一格代表模块栈的一格（模块内部可再按集合语义合并多条 op）
  */
 export class History {
   /** undo 栈 */
   private undoStack: HistoryEntry[] = [];
   /** redo 栈 */
   private redoStack: HistoryEntry[] = [];
-  /** 批量操作计数 */
-  private batchDepth = 0;
-  /** 批量期间暂存的 ops */
-  private batch: Op[] = [];
 
-  public constructor(private editor: Editor) {}
-
-  /** 记录一次变更，入参为正向 ops */
-  public record(ops: Op[]): void {
-    if (!ops.length) return;
-    const snapshot = this.editor.document.get();
-    const inverted = this.editor.document.invert(ops, snapshot as Snapshot);
-    if (!inverted.length) return;
-    if (this.batchDepth > 0) {
-      this.batch = this.editor.document.compose(this.batch, inverted);
-      return;
-    }
-    this.push({ kind: "ops", ops: this.normalize(inverted) });
-  }
-
-  /** 记录模块占位 */
-  public recordModule(moduleKey: string, path: Array<string | number>): void {
-    this.push({ kind: "module", moduleKey, path });
-  }
-
-  /** 入栈 */
-  private push(entry: HistoryEntry): void {
-    this.undoStack.push(entry);
+  /**
+   * 记录一次变更
+   * - 新操作会清空 redo 栈
+   * - 超过栈上限时丢弃最旧条目
+   * @param type 模块类型
+   * @param id 作用对象 id
+   */
+  public record(type: string, id: string): void {
+    this.undoStack.push({ type, id, time: Date.now() });
     this.redoStack = [];
     if (this.undoStack.length > STACK_SIZE) {
       this.undoStack.shift();
     }
-    this.emit();
   }
 
   /**
-   * 合并同一路径相同字段的连续 op，避免每个字符一条记录
-   * - ot-json 的 compose 需要正确的先后顺序，这里按原顺序合并
+   * 弹出 undo 栈顶并压入 redo 栈
+   * @returns 弹出的条目；空栈返回 null
    */
-  private normalize(ops: Op[]): Op[] {
-    return ops;
-  }
-
-  /** 开始批量 */
-  public beginBatch(): void {
-    this.batchDepth++;
-  }
-
-  /** 结束批量，把批量 ops 作为一条记录入栈 */
-  public closeBatch(): void {
-    this.batchDepth = Math.max(0, this.batchDepth - 1);
-    if (this.batchDepth === 0 && this.batch.length) {
-      const ops = this.batch;
-      this.batch = [];
-      this.push({ kind: "ops", ops });
-    }
-  }
-
-  /** 撤销 */
-  public undo(): void {
+  public undo(): HistoryEntry | null {
     const entry = this.undoStack.pop();
-    if (!entry) return;
-    this.applyEntry(entry);
-    this.redoStack.push(this.invertEntry(entry));
-    this.emit();
+    if (!entry) return null;
+    this.redoStack.push(entry);
+    return entry;
   }
 
-  /** 重做 */
-  public redo(): void {
+  /**
+   * 弹出 redo 栈顶并压回 undo 栈
+   * @returns 弹出的条目；空栈返回 null
+   */
+  public redo(): HistoryEntry | null {
     const entry = this.redoStack.pop();
-    if (!entry) return;
-    this.applyEntry(entry);
-    this.undoStack.push(this.invertEntry(entry));
-    this.emit();
+    if (!entry) return null;
+    this.undoStack.push(entry);
+    return entry;
   }
 
-  /** 执行栈条目 */
-  private applyEntry(entry: HistoryEntry): void {
-    if (entry.kind === "ops") {
-      this.editor.submit(entry.ops, APPLY_SOURCE.HISTORY, false);
-      return;
-    }
-    const module = this.editor.module.get(entry.moduleKey, entry.path);
-    module && module.undo();
-  }
-
-  /** 反转栈条目 */
-  private invertEntry(entry: HistoryEntry): HistoryEntry {
-    if (entry.kind === "module") return entry;
-    const snapshot = this.editor.document.get();
-    return { kind: "ops", ops: this.editor.document.invert(entry.ops, snapshot as Snapshot) };
-  }
-
-  /** 是否可撤销 */
+  /**
+   * 是否可撤销
+   * - 只判断主栈；模块内部栈（文本块逐字撤销）由模块自行上报
+   */
   public canUndo(): boolean {
     return this.undoStack.length > 0;
   }
 
-  /** 是否可重做 */
+  /**
+   * 是否可重做
+   * - 只判断主栈；模块内部栈由模块自行上报
+   */
   public canRedo(): boolean {
     return this.redoStack.length > 0;
   }
 
-  /** 清空 */
+  /** 清空双栈 */
   public clear(): void {
     this.undoStack = [];
     this.redoStack = [];
-    this.batch = [];
-    this.batchDepth = 0;
-    this.emit();
-  }
-
-  /** 广播栈状态 */
-  private emit(): void {
-    this.editor.event.trigger("HISTORY_CHANGE", {
-      canUndo: this.canUndo(),
-      canRedo: this.canRedo(),
-    });
   }
 
   /** 销毁 */
   public destroy(): void {
-    this.undoStack = [];
-    this.redoStack = [];
-    this.batch = [];
+    this.clear();
   }
 }

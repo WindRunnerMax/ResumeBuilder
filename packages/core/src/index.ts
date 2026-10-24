@@ -15,11 +15,12 @@ export type {
 export { EDITOR_EVENT } from "./event/types";
 export type { HistoryEntry } from "./history";
 export { History } from "./history";
+export { Key } from "./key";
 export type { LogLevel } from "./log";
 export { LOG_LEVEL, Logger } from "./log";
 export { ModeManager } from "./mode";
 export { ElementState, Model } from "./model";
-export type { ModuleSnapshot } from "./module";
+export { CanvasModule } from "./module/canvas";
 export { EditorModule, ModuleManager } from "./module";
 export { Overlay } from "./overlay";
 export type { CallerMap, PluginCaller, RenderContext } from "./plugin";
@@ -35,5 +36,6 @@ export {
   EDITOR_STATE,
   ELEMENT_KEY,
   HANDLE_KEY,
+  TEXT_KEY,
 } from "./utils/constant";
 export { View } from "./view";
