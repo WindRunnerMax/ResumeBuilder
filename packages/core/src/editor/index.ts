@@ -2,25 +2,25 @@ import type { Op as DeltaOp } from "@block-kit/delta";
 import type { Op, ResumeDoc, ResumeNode } from "@re/json";
 import { JSONDocument, serializeDelta } from "@re/json";
 
-import { Command } from "../command";
-import { EDITOR_EVENT } from "../event/types";
+import { COMMAND, Command } from "../command";
 import { EventBus } from "../event/bus";
-import { History } from "../history";
+import { EDITOR_EVENT } from "../event/types";
 import type { HistoryEntry } from "../history";
+import { History } from "../history";
 import { Interaction } from "../interaction";
 import { Key } from "../key";
 import { LOG_LEVEL, Logger } from "../log";
 import { ModeManager } from "../mode";
 import { Model } from "../model";
-import { CanvasModule } from "../module/canvas";
-import { ModuleManager } from "../module";
 import type { EditorModule } from "../module";
+import { ModuleManager } from "../module";
+import { CanvasModule } from "../module/canvas";
 import { Overlay } from "../overlay";
 import { Plugin } from "../plugin";
 import { Renderer } from "../renderer";
 import { Selection } from "../selection";
-import { APPLY_SOURCE, EDITOR_STATE } from "../utils/constant";
 import type { ApplySource, EditorStateKey } from "../utils/constant";
+import { APPLY_SOURCE, EDITOR_STATE } from "../utils/constant";
 import { View } from "../view";
 import type { EditorOptions } from "./types";
 
@@ -245,7 +245,8 @@ export class Editor {
       { p: ["nodes", node.id], oi: node },
     ];
     if (!this.isReadonly()) {
-      this.canvas.record(ops);
+      // 新节点 id 唯一，作用对象指纹必然不同，插入天然不会与栈顶合并
+      this.canvas.record(ops, COMMAND.INSERT);
       this.history.record(this.canvas.key, node.id);
       this.notifyHistory();
     }

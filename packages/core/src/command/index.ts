@@ -2,6 +2,7 @@ import type { Op, PaperSize } from "@re/json";
 
 import type { Editor } from "../editor";
 import { resolvePaperSize } from "../model/utils";
+import { RECORD_RESULT } from "../module/canvas";
 import { APPLY_SOURCE } from "../utils/constant";
 
 /** 命令名称 */
@@ -10,10 +11,11 @@ export const COMMAND = {
   RESIZE: "RESIZE",
   DELETE: "DELETE",
   REVISE: "REVISE",
+  INSERT: "INSERT",
 } as const;
 
 /** 命令名称类型 */
-export type CommandType = (typeof COMMAND)[keyof typeof COMMAND];
+export type CommandType = typeof COMMAND[keyof typeof COMMAND];
 
 /** 移动命令 */
 export type MoveCommand = {
@@ -71,8 +73,15 @@ export class Command {
     if (!this.editor.isReadonly()) {
       const targetId = this.getTargetId(ops);
       // 先入栈再提交：此时文档仍是旧快照，模块 invert 才是正确的
-      this.editor.canvas.record(ops);
-      this.editor.history.record(this.editor.canvas.key, targetId);
+      // 时间窗内的同类命令会并入栈顶，抵消时整格丢弃，主栈跟随模块的格子结构
+      const result = this.editor.canvas.record(ops, command.type);
+      if (result === RECORD_RESULT.APPEND) {
+        this.editor.history.record(this.editor.canvas.key, targetId);
+      } else if (result === RECORD_RESULT.MERGE) {
+        this.editor.history.record(this.editor.canvas.key, targetId, true);
+      } else {
+        this.editor.history.drop(this.editor.canvas.key, targetId);
+      }
       this.editor.notifyHistory();
     }
     this.editor.submit(ops, APPLY_SOURCE.USER, true);

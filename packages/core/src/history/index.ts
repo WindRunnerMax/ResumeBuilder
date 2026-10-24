@@ -32,15 +32,20 @@ export class History {
    * 记录一次变更
    * - 新操作会清空 redo 栈
    * - 超过栈上限时丢弃最旧条目
+   * - 合并由模块判定，主栈只按 `type + id` 跟随模块的格子结构
    * @param type 模块类型
    * @param id 作用对象 id
-   * @param replace 为 true 时替换栈顶条目而非新增，用于模块侧合并
+   * @param merge 为 true 时说明模块把本次变更并入了自己栈顶那一格，主栈不新增条目
    */
-  public record(type: string, id: string, replace = false): void {
-    if (replace && this.undoStack.length > 0) {
-      this.undoStack[this.undoStack.length - 1].time = Date.now();
-      this.redoStack = [];
-      return;
+  public record(type: string, id: string, merge = false): void {
+    if (merge) {
+      // 合并不会让栈长度变化，栈顶条目必须与模块栈顶是同一格
+      const top = this.undoStack[this.undoStack.length - 1];
+      if (top && top.type === type && top.id === id) {
+        top.time = Date.now();
+        this.redoStack = [];
+        return;
+      }
     }
     this.undoStack.push({ type, id, time: Date.now() });
     this.redoStack = [];

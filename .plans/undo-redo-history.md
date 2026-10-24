@@ -527,5 +527,126 @@ export class TextHistory extends History {
 | `react/test/text-history.test.ts` | 新增 `subscribe` 生效 / 取消订阅 2 例 |
 | `react/test/text-module.test.ts` | 按 effect 重写：逐条登记、`MERGE` 不记、`MERGE_DROP` 丢弃、无匹配条目不丢 |
 
+## 10. 画布模块的时间合并（对齐文本栈）
 
+### 10.1 背景
 
+§9 之后主栈已是被动接收，但**只有文本栈会合并**：BlockKit 的 `History` 在 1000ms 窗口内把连续输入 `compose` 进栈顶一格（`MERGE`）。画布侧 `CanvasModule.record` 是「一次命令一格」，同一个拖拽手势的收尾提交、方向键连按、属性面板滑块连续调值都会产生 N 格撤销，体验与文本块不一致。
+
+本轮把同一套「时间窗 + compose」下沉到 `CanvasModule`，主栈不改模型，只跟随模块上报的格子结构。
+
+### 10.2 记录结构
+
+```ts
+type CanvasRecord = {
+  ops: Op[]; // 正向 op
+  target: string; // 受影响节点 id 集合的指纹（排序后 join）
+  key: string; // 合并键，通常取命令类型
+  time: number; // 入栈时间
+};
+```
+
+合并条件（三者同时满足）：
+
+1. `key` 相同 —— 例如 `MOVE` 与 `RESIZE` 即使在窗口内也不合并；
+2. `target` 相同 —— 作用对象集合必须完全一致，单选扩多选、多选换对象都断开；
+3. `time - top.time <= MERGE_GAP`（1000ms，与 BlockKit `History.DELAY` 对齐）。
+
+合并动作：`composed = document.compose(top.ops, ops)`，写回栈顶并刷新 `time`，清空 redo。
+
+### 10.3 三态结果与主栈同步
+
+与 §9.2 的 `HISTORY_EFFECT` 一一对应：
+
+| `RECORD_RESULT` | 含义                     | 主栈动作                                                    |
+| --------------- | ------------------------ | ----------------------------------------------------------- |
+| `APPEND`        | 新开一格                 | `history.record(type, id)`                                  |
+| `MERGE`         | 并入栈顶                 | `history.record(type, id, true)`（只刷新栈顶时间、清 redo） |
+| `MERGE_DROP`    | 合并后完全抵消，栈少一格 | `history.drop(type, id)`                                    |
+
+> 早期版本用 `boolean`（是否新开一格）返回，`MERGE` 与 `MERGE_DROP` 都是 `false`，主栈无法区分「不动作」还是「丢一条」，移动回原位后会留下空白格。必须用三态。
+
+`History.record(type, id, merge)` 在 `merge` 模式下**只有栈顶 `type + id` 匹配时才合并**，不匹配则退化为普通入栈 —— 保证「主栈一格 = 模块栈一格」。
+
+### 10.4 浮点收敛
+
+`compose` 对 `na` 是原地累加（`last.na + c.na`），连续合并会带出 `95.99999999999999` 这类尾差。合并后统一 `Number(na.toFixed(6))`，并剔除收敛为 0 的增量；若全部增量归零且原 `composed` 非空，判定为纯增量抵消 → `MERGE_DROP`。
+
+注意**仅在合并分支处理**，不改变 `submit` 与 `invert` 的既有语义（`na` 以文档原值为基线累加，尾差仍可能出现，测试中位置断言用 `toBeCloseTo`）。
+
+### 10.5 调用方
+
+| 位置                | 合并键           | 说明                                     |
+| ------------------- | ---------------- | ---------------------------------------- |
+| `Command.execute`   | `command.type`   | MOVE / RESIZE / DELETE / REVISE 各自一档 |
+| `Editor.insertNode` | `COMMAND.INSERT` | 新节点 id 唯一，指纹必然不同，天然不合并 |
+
+### 10.6 为什么这里不需要 `transform`（重要讨论）
+
+**结论：当前合并路径安全，因为没有「同基线的两份 ops 并存」。**
+
+关键在于 ops 的生成时机：
+
+```
+A: translate(读当前文档) → record(A) → submit(A)   文档已变
+B: translate(读当前文档) → record(B) → submit(B)
+```
+
+`record` 发生在 `submit` 之前，但 `translate` 读的是**已经 churn 过 A 的最新快照**。因此 B 的路径索引本身就是 A 之后的值，`compose(A, B)` 得到的是天然串联的两条链，不存在坐标失效。
+
+对照三种「需要 transform」的场景：
+
+| 场景                                     | ops 生成时的基线                       | 需要 transform | 当前是否发生                            |
+| ---------------------------------------- | -------------------------------------- | -------------- | --------------------------------------- |
+| 栈顶合并（本轮）                         | 上一条 apply 之后的文档                | 否             | 是                                      |
+| 跨格合并（合并 undo 栈第 1 格与第 5 格） | 中间隔着别的格，索引已漂移             | 是             | 否，`record` 只合并栈顶                 |
+| 远端协同                                 | 远端基于旧快照生成，到达时本地已 apply | 是             | 否，`undoable: false` 变更绕过 `record` |
+
+**反例（用于说明何时必须 transform）**：基线 `[x, y]`，A = `insert(0, 'a')`，B = `insert(1, 'b')`，两条都基于 `[x, y]` 生成。直接 `compose` 会得到 `[b, a, x, y]`（b 跑到 a 前面），正确结果应为 `[a, b, x, y]`，必须先 `transform(B, A, 'right')` 把 B 的索引从 1 推到 2。
+
+这个「同时插入」在当前代码里不会出现：B 的 `translate` 读的是 A 之后的新文档，`p` 一开始就是 2。
+
+### 10.7 已知边界与后续要补的
+
+**假设**：所有进入 `record()` 的 ops 都基于**本地最新文档**生成。目前只有 `Command.execute` 与 `Editor.insertNode` 两个入口，且都是「翻译完立刻提交」，假设成立。
+
+假设被打破时的处理：
+
+1. **批量事务**（一个事务里先算好一堆 ops 再统一提交，中间可能被插队）→ `compose` 需换成 `transform + compose`；
+2. **跨格合并** → 参考 BlocksKit `History.mergeRecord`：从 `mergeIndex - 1` 往回逐条 `item.delta.transform(mergeDelta)`，再 `merge.compose(base)`（顺序不能反，因为 undo 执行顺序是 merge → base）；
+3. **远端协同** → 参考 `History.transformStack`，对 undo / redo 双栈逐格 `transform`，空结果剔除。
+
+**结构型 op 的冲突风险**：纯 `na` 增量与叶子字段 `od/oi` 的路径互不干扰，可安全合并；但 `li / ld / lm / oi 整对象` 会改变数组长度或索引语义，若同一路径前缀上出现两条结构型 op，`compose` 不一定报错但回放会错位（例如连续两次删 `children[0]`，第二次实际删的是原 `children[1]`）。
+
+当前靠「合并键 + target 指纹」隔开：不同对象指纹不同不合并；同一对象重复删除时第二次 `translate` 出来的 ops 为空，根本不进 `record`。**排查后发现活不下来，因此本轮未加路径冲突检测**。若后续支持「连续删除多个元素合并成一格」，必须补：
+
+```ts
+const hasConflict = top.ops.some(prev =>
+  ops.some(next => isSamePathPrefix(prev.p, next.p) && isStructural(prev) && isStructural(next))
+);
+if (hasConflict) appendNewSlot(); // 宁多一步撤销，也不错一步
+```
+
+### 10.8 测试
+
+`core/test/canvas-module.test.ts` 新增 `CanvasModule merge` 分组（11 例）：
+
+| #   | 用例                             | 断言                                 |
+| --- | -------------------------------- | ------------------------------------ |
+| 1   | 窗口内连续 MOVE                  | 三次合成一格，undo 一次回到原位      |
+| 2   | 拖拽收尾提交                     | 与上一次位移并入同一格               |
+| 3   | 跨出时间窗                       | 各占一格，逐条回退                   |
+| 4   | 持续在窗口内（每条间隔半个窗口） | 10 次仍只占一格                      |
+| 5   | MOVE + RESIZE                    | 不同合并键，撤销 RESIZE 不影响位置   |
+| 6   | 不同对象交替 MOVE                | 3 格                                 |
+| 7   | 单选扩多选                       | 2 格                                 |
+| 8   | 移回原位                         | `MERGE_DROP`，模块与主栈均无残留     |
+| 9   | REVISE 连续调值                  | 合成一格                             |
+| 10  | 合并后 redo                      | redo 回放完整，redo 栈耗尽后不再拆分 |
+| 11  | 撤销后再操作                     | 新开一格并清空 redo                  |
+
+`core/test/history.test.ts` 新增 5 例：合并不新增条目、刷新栈顶时间、目标不匹配退化为入栈、空栈合并退化为入栈、合并清 redo。
+
+旧用例中依赖「每条命令一格」的三例（连续操作、clear、redo 链）改用 `jest.useFakeTimers()` + `advanceTimersByTime(MERGE_GAP + 1)` 显式跨出时间窗。
+
+测试总数：utils 1 + json 6 + core 51 + react 18 = **76 例**，全部通过；`lint:ts`、eslint、prettier 均无报错。
