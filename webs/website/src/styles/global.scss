@@ -390,6 +390,11 @@ body {
   box-sizing: content-box;
 }
 
+/** 块级插件链接弹层：覆盖全局 border-box */
+.block-kit-link-popup {
+  box-sizing: content-box;
+}
+
 /** 块级插件工具栏下拉：限制最大高度，使用最细滚动条 */
 .block-kit-toolbar-dropdown {
   max-height: 300px;

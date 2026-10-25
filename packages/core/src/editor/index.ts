@@ -211,6 +211,10 @@ export class Editor {
    */
   public loadDocument(doc: ResumeDoc): void {
     this.docVersion += 1;
+    // 先清空全部节点再导入：新旧节点 id 相同时，文本块等非受控视图不会重建，
+    // 会沿用旧内容导致导入不生效
+    this.document.clear();
+    this.model.rebuild();
     this.document.load(doc);
     this.model.rebuild();
     this.selection.clear();

@@ -168,7 +168,6 @@ const convert = data => {
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 fs.mkdirSync(THUMB_DIR, { recursive: true });
 
-let first = null;
 for (const name of TEMPLATES) {
   const src = path.join(SOURCE_DIR, name, "index.json");
   if (!fs.existsSync(src)) {
@@ -178,7 +177,6 @@ for (const name of TEMPLATES) {
   const doc = convert(JSON.parse(fs.readFileSync(src, "utf8")));
   const out = path.join(OUTPUT_DIR, `${name}.json`);
   fs.writeFileSync(out, JSON.stringify(doc));
-  first = first || out;
 
   // 缩略图直接复用 CanvasEditor 的原图
   const thumbSrc = path.join(SOURCE_DIR, name, "index.jpeg");
@@ -191,10 +189,4 @@ for (const name of TEMPLATES) {
       1
     )}KB`
   );
-}
-
-// 首个模板同时作为默认示例
-if (first) {
-  fs.copyFileSync(first, "/Users/czy/Project/Packages/ResumeBuilder/packages/json/src/example.json");
-  console.log("example.json <-", path.basename(first));
 }

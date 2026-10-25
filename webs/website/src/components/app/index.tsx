@@ -1,5 +1,5 @@
 import { Editor, LOG_LEVEL } from "@re/core";
-import { createExampleDoc, JSONDocument } from "@re/json";
+import { createDefaultDoc, JSONDocument } from "@re/json";
 import { BASE_PLUGINS, CanvasView, EditorProvider, EditorView, registerBaseViews } from "@re/react";
 import type { FC } from "react";
 import React, { useEffect, useMemo } from "react";
@@ -18,7 +18,7 @@ registerBaseViews();
  */
 export const App: FC = () => {
   const editor = useMemo(() => {
-    const doc = new JSONDocument(loadDocument() || createExampleDoc());
+    const doc = new JSONDocument(loadDocument() || createDefaultDoc());
     return new Editor({ doc, logLevel: LOG_LEVEL.INFO, plugins: BASE_PLUGINS });
   }, []);
 

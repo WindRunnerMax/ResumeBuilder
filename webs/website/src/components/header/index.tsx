@@ -1,4 +1,4 @@
-import { Button, Dropdown, Menu, Message } from "@arco-design/web-react";
+import { Button, Dropdown, Menu, Message, Modal } from "@arco-design/web-react";
 import { IconDown, IconGithub, IconRedo, IconUndo } from "@arco-design/web-react/icon";
 import { useCommand, useEditor, useEditorEvent, useHistory } from "@re/react";
 import { getTimestamp } from "@re/utils";
@@ -75,6 +75,26 @@ export const Header: FC = () => {
     input.click();
   };
 
+  /** 清空画布：删除页面下所有元素，保留纸张与纸张设置 */
+  const onClearCanvas = () => {
+    Modal.confirm({
+      title: "清空画布",
+      simple: true,
+      content: "确定要清空画布吗，当前的所有元素将会被删除。",
+      onConfirm: () => {
+        const page = editor.model.getPage();
+        const ids = page.children.slice();
+        if (!ids.length) {
+          Message.info("画布已经是空的了");
+          return;
+        }
+        editor.selection.clear();
+        editor.command.execute({ type: "DELETE", payload: { ids } });
+        Message.success("画布已清空");
+      },
+    });
+  };
+
   /** 操作菜单 */
   const opMenu = (
     <Menu className="cv-menu">
@@ -86,6 +106,9 @@ export const Header: FC = () => {
       </Menu.Item>
       <Menu.Item key="clear" onClick={() => editor.history.clear()}>
         清空历史
+      </Menu.Item>
+      <Menu.Item key="clear-canvas" onClick={onClearCanvas}>
+        清空画布
       </Menu.Item>
     </Menu>
   );

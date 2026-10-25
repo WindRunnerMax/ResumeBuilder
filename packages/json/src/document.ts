@@ -76,6 +76,20 @@ export class JSONDocument {
     return json.transform(ops, other, side);
   }
 
+  /**
+   * 清空文档
+   * - 删除页面下所有节点，保留页面根节点本身
+   * - 用于导入前重置，避免新旧节点 id 冲突
+   */
+  public clear(): void {
+    const root = json.create(this.snapshot.nodes[this.snapshot.root]) as ResumeNode;
+    const page: ResumeNode = { ...root, children: [] };
+    this.snapshot = json.create({
+      ...this.snapshot,
+      nodes: { [this.snapshot.root]: page },
+    }) as ResumeDoc;
+  }
+
   /** 整体替换文档 */
   public load(doc: ResumeDoc): void {
     this.snapshot = json.create(doc) as ResumeDoc;

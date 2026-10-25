@@ -7,7 +7,7 @@ import { loadTemplate, TEMPLATE_CONFIG } from "../../../utils/template";
 
 /**
  * 模板面板
- * - 两列网格展示缩略图，点击后载入
+ * - 两列网格展示缩略图，点击后按需加载模板数据
  */
 export const Template: FC = () => {
   const editor = useEditor();
@@ -18,14 +18,20 @@ export const Template: FC = () => {
       title: "加载模板",
       simple: true,
       content: "确定要加载模板吗，当前的数据将会被覆盖。",
-      onConfirm: () => {
-        const doc = loadTemplate(key);
-        if (!doc) {
+      // onConfirm 返回 Promise 时，确认按钮自动进入 loading 状态
+      onConfirm: async () => {
+        try {
+          const doc = await loadTemplate(key);
+          if (!doc) {
+            Message.error("模板加载失败");
+            return;
+          }
+          editor.loadDocument(doc);
+          Message.success("模板已载入");
+        } catch (error) {
           Message.error("模板加载失败");
-          return;
+          console.error("[cv] load template failed", error);
         }
-        editor.loadDocument(doc);
-        Message.success("模板已载入");
       },
     });
   };
