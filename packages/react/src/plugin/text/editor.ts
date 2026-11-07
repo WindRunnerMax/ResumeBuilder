@@ -66,12 +66,16 @@ export const createTextEditor = (id: string, ops: DeltaOp[]): Editor => {
 
 /**
  * 销毁文本块编辑器
+ * - 只在缓存中仍是该实例时才销毁并删除：
+ *   整文档替换时同一 id 可能已经建好了新实例，旧视图卸载不能把新实例一起删掉
  * @param id 文本节点 id
+ * @param editor 待销毁的编辑器实例，省略时销毁缓存中的实例
  */
-export const destroyTextEditor = (id: string): void => {
-  const editor = EDITORS.get(id);
-  if (!editor) return;
-  editor.destroy();
+export const destroyTextEditor = (id: string, editor?: Editor | null): void => {
+  const current = EDITORS.get(id);
+  if (!current) return;
+  if (editor && current !== editor) return;
+  current.destroy();
   EDITORS.delete(id);
 };
 

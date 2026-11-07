@@ -8,6 +8,9 @@ import { KEY_CODE } from "@block-kit/utils";
  */
 const LINE_BREAK: ShortcutFunc = (event, payload) => {
   if (event.keyCode !== KEY_CODE.ENTER && event.key !== "Enter") return;
+  // 组合输入（输入法 composing）时回车是「上屏」，不能被当作换行处理
+  // Chrome 在 compositionend 后仍会派发 keyCode 为 229 的 Enter，需要一并拦截
+  if (event.isComposing || event.keyCode === 229 || event.key === "Process") return;
   const { editor, sel } = payload;
   if (!sel) return;
   editor.perform.insertBreak(sel);

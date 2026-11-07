@@ -211,16 +211,21 @@ export class Editor {
    */
   public loadDocument(doc: ResumeDoc): void {
     this.docVersion += 1;
-    // 先清空全部节点再导入：新旧节点 id 相同时，文本块等非受控视图不会重建，
-    // 会沿用旧内容导致导入不生效
+    this.selection.clear();
+    this.mode.exitTextEdit();
+    this.history.clear();
+    // 必须在广播 CONTENT_CHANGE 之前销毁旧模块：
+    // 广播会让 React 同步重渲染，此时旧视图尚未卸载，新视图会先按相同 id
+    // 命中旧编辑器缓存，随后旧视图卸载又把缓存删掉，导致新块挂载到已销毁的旧实例上
+    const modules = this.module.getAll().filter(module => module !== this.canvas);
+    this.module.unregisterList(modules);
+    modules.forEach(module => module.destroy());
+    this.canvas.clear();
+    // 先清空全部节点再写入：新旧节点 id 相同时视图才能正确重建
     this.document.clear();
     this.model.rebuild();
     this.document.load(doc);
     this.model.rebuild();
-    this.selection.clear();
-    this.mode.exitTextEdit();
-    this.history.clear();
-    this.module.clear();
     this.view.layout();
     this.renderer.patchPage();
     this.notifyHistory();

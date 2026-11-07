@@ -37,7 +37,8 @@ const TextBlockView: FC<ElementViewProps> = props => {
   // 注册独立撤销栈模块，并把文本栈的结构变化同步到画布主栈
   // 注意：这里只负责「登记」，真正写回画布文档由下面的 effect 完成
   useEffect(() => {
-    const module = new TextModule(text.id, canvas);
+    // 绑定实例：整文档替换时同一 id 会先后存在两个编辑器，销毁必须按实例
+    const module = new TextModule(text.id, canvas, undefined, blockEditor);
     canvas.module.register(module);
     // 直接订阅 TextHistory 的 effect，主栈才能与文本栈严格一格对一格
     const history = blockEditor.history as TextHistory;

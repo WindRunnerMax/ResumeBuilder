@@ -395,6 +395,11 @@ body {
   box-sizing: content-box;
 }
 
+/** 分割线上下留白：默认 6px 过大，简历场景收紧到 3px */
+.block-kit-divider-container.block-kit-divider-container {
+  padding: 3px 0;
+}
+
 /** 块级插件工具栏下拉：限制最大高度，使用最细滚动条 */
 .block-kit-toolbar-dropdown {
   max-height: 300px;

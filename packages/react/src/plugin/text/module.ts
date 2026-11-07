@@ -23,19 +23,24 @@ export class TextModule extends EditorModule {
   public readonly key = "text";
   /** 绑定的文本节点 id */
   public readonly id: string;
+  /** 创建时绑定的编辑器实例，用于精确销毁 */
+  private readonly instance: TextEditorLike | null;
 
   /**
    * @param id 文本节点 id
    * @param canvas 画布编辑器，用于同步主栈与广播历史状态
    * @param getEditor 文本编辑器获取方式，默认取全局缓存
+   * @param instance 创建时绑定的编辑器实例，销毁时按实例销毁
    */
   public constructor(
     id: string,
     private canvas: Editor,
-    private getEditor: (id: string) => TextEditorLike | null = getTextEditor
+    private getEditor: (id: string) => TextEditorLike | null = getTextEditor,
+    instance: TextEditorLike | null = null
   ) {
     super();
     this.id = id;
+    this.instance = instance;
   }
 
   /** 内部文本编辑器 */
@@ -108,6 +113,7 @@ export class TextModule extends EditorModule {
 
   /** 销毁 */
   public destroy(): void {
-    destroyTextEditor(this.id);
+    // 按实例销毁：整文档替换后同 id 可能已有新实例，不能误删
+    destroyTextEditor(this.id, (this.instance || this.editor) as BlockEditor | null);
   }
 }

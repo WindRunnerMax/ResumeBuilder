@@ -46,6 +46,11 @@ export class ModuleManager {
     this.modules = this.modules.filter(item => item !== module);
   }
 
+  /** 批量注销模块，按实例注销 */
+  public unregisterList(modules: EditorModule[]): void {
+    this.modules = this.modules.filter(item => !modules.includes(item));
+  }
+
   /** 按 key 取出所有模块，如多个文本块共用 "text" */
   public getList(key: string): EditorModule[] {
     return this.modules.filter(module => module.key === key);
