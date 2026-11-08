@@ -31,7 +31,7 @@ export const Tools: FC = () => {
             type: "text",
             height: 30,
             delta: [{ insert: "新文本" }],
-            style: { family: "PingFang SC", size: 14, lineHeight: 1.6, color: "#1F2328" },
+            style: { family: "Microsoft YaHei", size: 14, lineHeight: 1.6, color: "#1F2328" },
             autoHeight: true,
           } satisfies TextNode)
         : ({

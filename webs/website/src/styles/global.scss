@@ -641,6 +641,10 @@ body {
   height: 100%;
   outline: none;
 
+  /** 苹方受 Apple 授权限制不允许嵌入 PDF，Chromium 打印会退化为 Type3 轮廓，
+   *  导致导出的文本层顺序错乱，ATS 无法解析，因此统一覆盖为微软雅黑 */
+  font-family: "Microsoft YaHei", sans-serif !important;
+
   p {
     margin: 0;
   }

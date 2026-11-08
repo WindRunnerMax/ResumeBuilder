@@ -48,7 +48,7 @@ export const createText = (options: Partial<TextNode> = {}): TextNode => {
     width: 200,
     height: 30,
     delta: [{ insert: "请输入内容" }],
-    style: { family: "PingFang SC", size: 14, lineHeight: 1.5, color: "#1F2328" },
+    style: { family: "Microsoft YaHei", size: 14, lineHeight: 1.5, color: "#1F2328" },
     autoHeight: true,
     ...options,
   };
@@ -96,7 +96,7 @@ export const createDefaultDoc = (): ResumeDoc => {
     height: titleHeight,
     delta: [{ insert: "基于 DOM 实现的简历编辑器", attributes: { "font-size": "24", bold: "true" } }],
     style: {
-      family: "PingFang SC",
+      family: "Microsoft YaHei",
       size: 24,
       weight: "bold",
       lineHeight: 1.4,
