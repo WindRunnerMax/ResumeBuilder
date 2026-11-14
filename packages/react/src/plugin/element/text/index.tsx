@@ -5,6 +5,7 @@ import { EDITOR_EVENT } from "@block-kit/core";
 import { FloatToolbar, ToolBarMixin } from "@block-kit/plugin";
 import { BlockKit, Editable, useEditorStatic } from "@block-kit/react";
 import type { TextNode } from "@re/json";
+import type { Point } from "@re/utils";
 import type { ElementViewProps } from "../../../index";
 import { registerElementView, useEditor, useMode } from "../../../index";
 import type { FC } from "react";
@@ -14,6 +15,23 @@ import { TEXT_CLASS } from "../../text/const";
 import { createTextEditor } from "../../text/editor";
 import type { TextHistory } from "../../text/history";
 import { TextModule } from "../../text/module";
+
+/**
+ * 按点击位置放置原生光标
+ * - 仅设置浏览器选区，模型选区由 BlockKit 监听 selectionchange 同步
+ * - 坐标为空或命中失败时不做处理，保持默认落点
+ * @param el 编辑器容器
+ * @param point 视口坐标
+ */
+const placeCaret = (el: HTMLElement, point: Point | null): void => {
+  if (!point) return;
+  const range = document.caretRangeFromPoint(point.x, point.y);
+  if (!range || !el.contains(range.startContainer)) return;
+  const selection = window.getSelection();
+  if (!selection) return;
+  selection.removeAllRanges();
+  selection.addRange(range);
+};
 
 /**
  * 文本块视图
@@ -64,15 +82,19 @@ const TextBlockView: FC<ElementViewProps> = props => {
   // 编辑器完全非受控：挂载时用节点数据初始化，之后单向写回数据
   // 外部整文档替换通过 CanvasView 的文档代数 key 触发 remount 重建
 
-  // 进入编辑态时聚焦到末尾
+  // 进入编辑态时聚焦：双击进入按点击位置落光标，其余入口聚焦到末尾
+  // 统一走 BlockKit 的 selection.focus()，其内部带 preventScroll，避免聚焦本身滚动画布
   useEffect(() => {
     if (!editing) return;
     const timer = setTimeout(() => {
       const el = blockEditor.getContainer();
-      el.focus();
+      const point = canvas.mode.consumeEditPoint();
+      // 光标落点必须已经在视口内，否则浏览器仍会为显示光标而滚动
+      placeCaret(el, point);
+      blockEditor.selection.focus();
     }, 0);
     return () => clearTimeout(timer);
-  }, [blockEditor, editing]);
+  }, [blockEditor, canvas, editing]);
 
   const style: React.CSSProperties = {
     width: "100%",

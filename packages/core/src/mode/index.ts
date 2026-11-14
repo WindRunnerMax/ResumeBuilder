@@ -1,3 +1,5 @@
+import type { Point } from "@re/utils";
+
 import type { Editor } from "../editor";
 import { EDITOR_MODE } from "../utils/constant";
 import type { EditorMode } from "../utils/constant";
@@ -15,6 +17,8 @@ export class ModeManager {
   private current: EditorMode = EDITOR_MODE.GRAPH;
   /** 文本编辑态下的节点 id */
   private editId: string | null = null;
+  /** 进入编辑态时的鼠标位置（视口坐标），用于把光标放到点击处 */
+  private editPoint: Point | null = null;
   /** 监听器 */
   private listeners: Set<ModeListener> = new Set();
 
@@ -30,6 +34,17 @@ export class ModeManager {
     return this.editId;
   }
 
+  /**
+   * 进入编辑态时的鼠标位置（视口坐标）
+   * - 双击进入时为点击位置，其余入口为空，表示聚焦到末尾
+   * - 消费一次后清空，避免下次进入误用
+   */
+  public consumeEditPoint(): Point | null {
+    const point = this.editPoint;
+    this.editPoint = null;
+    return point;
+  }
+
   /** 是否为文本编辑模式 */
   public isTextEdit(): boolean {
     return this.current === EDITOR_MODE.TEXT_EDIT;
@@ -40,14 +55,19 @@ export class ModeManager {
     return this.current === EDITOR_MODE.TEXT_EDIT && this.editId === id;
   }
 
-  /** 进入文本编辑模式 */
-  public enterTextEdit(id: string): boolean {
+  /**
+   * 进入文本编辑模式
+   * @param id 文本节点 id
+   * @param point 触发位置（视口坐标），双击时传点击位置以把光标落到点击处
+   */
+  public enterTextEdit(id: string, point?: Point | null): boolean {
     const state = this.editor.model.get(id);
     if (!state || state.type !== "text") return false;
     if (this.current === EDITOR_MODE.TEXT_EDIT && this.editId === id) return true;
     const from = this.current;
     this.current = EDITOR_MODE.TEXT_EDIT;
     this.editId = id;
+    this.editPoint = point || null;
     this.editor.selection.set([id]);
     this.emit(from, id);
     return true;
@@ -59,6 +79,7 @@ export class ModeManager {
     const from = this.current;
     this.current = EDITOR_MODE.GRAPH;
     this.editId = null;
+    this.editPoint = null;
     this.emit(from, null);
   }
 

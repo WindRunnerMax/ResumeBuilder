@@ -335,7 +335,8 @@ export class Interaction {
     if (!id) return;
     const state = this.editor.model.get(id);
     if (state && state.type === "text") {
-      this.editor.mode.enterTextEdit(id);
+      // 传入点击位置，进入编辑时把光标落到双击处，避免被聚焦到块首导致画布滚动
+      this.editor.mode.enterTextEdit(id, { x: e.clientX, y: e.clientY });
       e.preventDefault();
     }
   };

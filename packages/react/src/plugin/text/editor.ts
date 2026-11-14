@@ -9,7 +9,6 @@ import {
   DividerPlugin,
   FontColorPlugin,
   FontSizePlugin,
-  IndentPlugin,
   InlineCodePlugin,
   ItalicPlugin,
   LineHeightPlugin,
@@ -21,6 +20,7 @@ import {
 } from "@block-kit/plugin";
 
 import { TextHistory } from "./history";
+import { TextIndentPlugin } from "./indent";
 import { SCHEMA } from "./schema";
 import { PRESET_SHORTCUT } from "./shortcut";
 
@@ -55,7 +55,7 @@ export const createTextEditor = (id: string, ops: DeltaOp[]): Editor => {
     new FontColorPlugin(editor),
     new BackgroundPlugin(editor),
     new AlignPlugin(editor),
-    new IndentPlugin(editor),
+    new TextIndentPlugin(editor),
     new OrderListPlugin(editor),
     new BulletListPlugin(editor),
     new Shortcut(editor, PRESET_SHORTCUT),
